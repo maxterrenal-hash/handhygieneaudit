@@ -71,10 +71,12 @@
   .pill-row::-webkit-scrollbar { display:none; }
   /* Moments row: fit width, no horizontal scroll */
   .pill-row.moments { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; overflow: hidden; }
-  .pill-row.moments .tile { width: 100%; min-width: 0; max-width: none; text-align: center; }
+  .pill-row.moments .tile { width: 100%; min-width: 0; max-width: none; text-align: center; white-space: normal; overflow: visible; }
+  .tile[aria-selected="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(110,231,255,0.18) inset; }
+  .tile[disabled] { opacity:.5; cursor:not-allowed; }
   /* Actions row: no horizontal scroll on mobile */
   .pill-row.actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; overflow: hidden; }
-  .pill-row.actions .tile { width: 100%; min-width: 0; max-width: none; text-align: center; }
+  .pill-row.actions .tile { width: 100%; min-width: 0; max-width: none; text-align: center; white-space: normal; overflow: visible; }
   .pill-row.moments .tile { width: 100%; min-width: 0; max-width: none; text-align: center; }
 
   /* Clickable pill */
@@ -172,24 +174,6 @@
       <div style="font-weight:700; margin-bottom:8px;">Moments Tally</div>
       <div class="summary" id="momentsTally">
         <div class="kpi"><div class="v" id="k_m_BEF_PAT">0</div><div class="l">BEF-PAT</div></div>
-        <div class="kpi"><div class="v" id="k_m_BEF_ASEPT">0</div><div class="l">BEF-ASEPT</div></div>
-        <div class="kpi"><div class="v" id="k_m_AFT_BF">0</div><div class="l">AFT-BF</div></div>
-        <div class="kpi"><div class="v" id="k_m_AFT_PAT">0</div><div class="l">AFT-PAT</div></div>
-        <div class="kpi"><div class="v" id="k_m_AFT_PSURR">0</div><div class="l">AFT-PSURR</div></div>
-      </div>
-    </div>
-        <div class="kpi"><div class="v" id="k_m_BEF_ASEPT">0</div><div class="l">BEF-ASEPT</div></div>
-        <div class="kpi"><div class="v" id="k_m_AFT_BF">0</div><div class="l">AFT-BF</div></div>
-        <div class="kpi"><div class="v" id="k_m_AFT_PAT">0</div><div class="l">AFT-PAT</div></div>
-        <div class="kpi"><div class="v" id="k_m_AFT_PSURR">0</div><div class="l">AFT-PSURR</div></div>
-      </div><div class="l">Before touching patient</div></div>
-        <div class="kpi"><div class="v" id="k_m_before_aseptic_procedure">0</div><div class="l">Before aseptic procedure</div></div>
-        <div class="kpi"><div class="v" id="k_m_after_exposure_to_body_fluids">0</div><div class="l">After exposure to body fluids</div></div>
-        <div class="kpi"><div class="v" id="k_m_after_touching_patient">0</div><div class="l">After touching patient</div></div>
-        <div class="kpi"><div class="v" id="k_m_after_touching_surroundings">0</div><div class="l">After touching surroundings</div></div>
-      </div>
-    </div>
-
     <div class="card">
       <button class="btn" id="submitBtn">Submit</button>
       <div class="note"><a href="https://docs.google.com/spreadsheets/d/17gato20KLR_8T9SSVSwqLlRKvt5fX_cew_UiwyjQogo/edit?usp=sharing" target="_blank" rel="noopener">See Sheet: https://docs.google.com/spreadsheets/d/17gato20KLR_8T9SSVSwqLlRKvt5fX_cew_UiwyjQogo/edit?usp=sharing</a></div>
