@@ -38,6 +38,8 @@
 
   .btn { width:100%; padding:14px 16px; border-radius: 14px; background: linear-gradient(180deg, #18a1f0, #0f7cd6); border: none; color: white; font-weight: 700; font-size: 16px; letter-spacing: 0.3px; cursor: pointer; }
   .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-outline { width:100%; padding:12px 14px; border-radius: 14px; background: transparent; border: 1px solid var(--border); color: var(--text); font-weight: 700; font-size: 15px; letter-spacing: 0.2px; cursor: pointer; }
+  .btn-outline:focus { border-color: var(--accent); }
 
   .note { color: var(--muted); font-size: 12px; margin-top: 6px; }
 
@@ -91,7 +93,7 @@
 </style>
 </head>
 <body>
-  <div class="container">
+  <div class="container" id="formView">
     <div class="h1">Hand Hygiene Audit</div>
 
     <div class="card">
@@ -186,6 +188,47 @@
       <div class="note"><a href="https://docs.google.com/spreadsheets/d/17gato20KLR_8T9SSVSwqLlRKvt5fX_cew_UiwyjQogo/edit?usp=sharing" target="_blank" rel="noopener">See Sheet: https://docs.google.com/spreadsheets/d/17gato20KLR_8T9SSVSwqLlRKvt5fX_cew_UiwyjQogo/edit?usp=sharing</a></div>
       <div class="note" id="status"></div>
     </div>
+
+    <div class="card">
+      <button class="btn-outline" id="openSummary">Data Summary</button>
+    </div>
+  </div>
+  </div>
+
+  <!-- Data Summary View -->
+  <div class="container" id="summaryView" style="display:none;">
+    <div class="h1">Data Summary</div>
+
+    <div class="card">
+      <div style="font-weight:700; margin-bottom:8px;">Compliance</div>
+      <div class="row">
+        <div class="col"><label>Month</label><select id="f_month"></select></div>
+        <div class="col"><label>Year</label><select id="f_year"></select></div>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <div class="col"><label>Area</label><select id="f_area"></select></div>
+        <div class="col"><label>Auditee</label><select id="f_auditee"></select></div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div class="col"><button class="btn-outline" id="applyCompliance">Apply Filters</button></div>
+      </div>
+      <div class="note" id="complianceLinkWrap" style="margin-top:8px;">
+        <a id="complianceLink" href="https://docs.google.com/spreadsheets/d/17gato20KLR_8T9SSVSwqLlRKvt5fX_cew_UiwyjQogo/edit?usp=sharing" target="_blank" rel="noopener">Open Compliance Sheet</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:700; margin-bottom:8px;">Area Compliance</div>
+      <div class="row">
+        <div class="col"><label>Month</label><select id="af_month"></select></div>
+        <div class="col"><label>Year</label><select id="af_year"></select></div>
+      </div>
+      <div class="summary" id="areaComplianceGrid" style="margin-top:8px;"></div>
+    </div>
+
+    <div class="card">
+      <button class="btn-outline" id="backToForm">← Back to Form</button>
+    </div>
   </div>
 
   <!-- iOS-style Date Picker Modal -->
@@ -246,6 +289,7 @@ async function loadConfig() {
 
     renderOpportunities();
     updateSummary();
+    initSummary();
     runSelfTests('after-config');
   } catch (e) {
     fillSelect(el('auditor'), defaults.auditors);
@@ -261,6 +305,7 @@ async function loadConfig() {
 
     renderOpportunities();
     updateSummary();
+    initSummary();
     el('status').textContent = 'Loaded fallback lists. Check your Apps Script web app access and Config sheet headers.';
     runSelfTests('fallback');
   }
@@ -656,6 +701,78 @@ loadConfig();
 // Opt-in extra tests
 if (new URLSearchParams(location.search).get('test') === '1') {
   setTimeout(runExtraTests, 300);
+}
+
+// ===== Data Summary (UI only) =====
+function initSummary() {
+  // Populate filters
+  const months = MONTHS.map((m,i)=>({label:m, value:(i+1)}));
+  function fillOpts(sel, arr, valueKey='value', labelKey='label') {
+    sel.innerHTML = '';
+    arr.forEach(it=>{ const o=document.createElement('option'); o.value=it[valueKey]; o.textContent=it[labelKey]; sel.appendChild(o); });
+  }
+  const now = new Date();
+  const years = Array.from({length:7}, (_,i)=> now.getFullYear()-3 + i);
+  const yearsArr = years.map(y=>({label:String(y), value:y}));
+
+  // Compliance filters
+  if (el('f_month')) fillOpts(el('f_month'), months);
+  if (el('f_year')) fillOpts(el('f_year'), yearsArr);
+  if (el('f_area')) fillSelect(el('f_area'), state.config.areas || []);
+  if (el('f_auditee')) fillSelect(el('f_auditee'), ['Nurse','Doctor','Med Tech','Rad Tech','Nursing Aide','Medical Intern','RT']);
+
+  // Area Compliance filters
+  if (el('af_month')) fillOpts(el('af_month'), months);
+  if (el('af_year')) fillOpts(el('af_year'), yearsArr);
+
+  // Build area tally grid placeholders
+  renderAreaComplianceGrid();
+
+  // Wire buttons once
+  if (el('openSummary') && !el('openSummary').dataset.bound) {
+    el('openSummary').dataset.bound = '1';
+    el('openSummary').addEventListener('click', ()=> switchView('summary'));
+  }
+  if (el('backToForm') && !el('backToForm').dataset.bound) {
+    el('backToForm').dataset.bound = '1';
+    el('backToForm').addEventListener('click', ()=> switchView('form'));
+  }
+  if (el('applyCompliance') && !el('applyCompliance').dataset.bound) {
+    el('applyCompliance').dataset.bound = '1';
+    el('applyCompliance').addEventListener('click', ()=>{
+      const m = el('f_month').value; const y = el('f_year').value;
+      const a = encodeURIComponent(el('f_area').value||'');
+      const t = encodeURIComponent(el('f_auditee').value||'');
+      // Update link with query params for convenience
+      const link = `https://docs.google.com/spreadsheets/d/17gato20KLR_8T9SSVSwqLlRKvt5fX_cew_UiwyjQogo/edit?usp=sharing#month=${m}&year=${y}&area=${a}&auditee=${t}`;
+      el('complianceLink').href = link;
+    });
+  }
+}
+
+function renderAreaComplianceGrid() {
+  const grid = el('areaComplianceGrid');
+  if (!grid) return;
+  const areas = state.config.areas && state.config.areas.length ? state.config.areas : ['7th Floor','ERC','ACM','OBGyne Ward','NICU','ICU','Surgery Ward','Dengue Ward','Infectious Ward','Medicine Ward','6th Floor Ward','Oncology Ward','Pedia Main','4th Floor Ward','Others'];
+  grid.innerHTML = '';
+  // Make 2 or 3 columns depending on screen
+  grid.style.display = 'grid';
+  grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+  if (window.matchMedia('(min-width: 480px)').matches) grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+  areas.forEach(name=>{
+    const node = document.createElement('div');
+    node.className = 'kpi';
+    node.innerHTML = `<div class="v" data-area="${name}">0%</div><div class="l">${name}</div>`;
+    grid.appendChild(node);
+  });
+}
+
+function switchView(which) {
+  const form = document.getElementById('formView');
+  const sum  = document.getElementById('summaryView');
+  if (!form || !sum) return;
+  if (which === 'summary') { form.style.display='none'; sum.style.display='block'; }
+  else { sum.style.display='none'; form.style.display='block'; }
 }
 </script>
 </body>
