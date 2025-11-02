@@ -734,9 +734,10 @@ async function loadSummary() {
 
     const rows = Array.isArray(data.rows) ? data.rows : [];
     const filtered = rows.filter(r => {
-      if (!r.date) return false;
-      if (String(r.date).slice(0,4) !== year) return false;
-      if (month !== 'all' && String(r.date).slice(5,7) !== month) return false;
+      const ym = getYM(r.date);
+      if (!ym.y) return false;
+      if (ym.y !== year) return false;
+      if (month !== 'all' && ym.m !== month) return false;
       return true;
     });
 
@@ -748,7 +749,36 @@ async function loadSummary() {
   }
 }
 
-function isCompliant(action) { return action === 'HW' || action === 'HR'; }
+function isCompliant(action) {
+  // Treat both new codes (HW/HR) and legacy labels (Hand Wash/Hand Rub) as compliant
+  return action === 'HW' || action === 'HR' || action === 'Hand Wash' || action === 'Hand Rub';
+}
+
+// Normalize date from Apps Script/sheet into {y, m}
+function getYM(val) {
+  if (!val) return { y: null, m: null };
+  // Try native Date parsing first
+  const d = new Date(val);
+  if (!isNaN(d)) {
+    return { y: String(d.getFullYear()), m: String(d.getMonth() + 1).padStart(2, '0') };
+  }
+  const s = String(val);
+  // Try ISO-like 'YYYY-MM-DD'
+  if (s.indexOf('-') >= 0) {
+    const p = s.split('-');
+    if (p.length >= 2) return { y: p[0], m: String(p[1]).padStart(2,'0') };
+  }
+  // Try 'MM/DD/YYYY' or 'MM.DD.YYYY'
+  if (s.indexOf('/') >= 0) {
+    const p = s.split('/');
+    if (p.length >= 3) return { y: p[2], m: String(p[0]).padStart(2,'0') };
+  }
+  if (s.indexOf('.') >= 0) {
+    const p = s.split('.');
+    if (p.length >= 3) return { y: p[2], m: String(p[0]).padStart(2,'0') };
+  }
+  return { y: null, m: null };
+}
 
 function renderAreaTable(rows) {
   const byArea = new Map();
