@@ -41,7 +41,7 @@
 
   .note { color: var(--muted); font-size: 12px; margin-top: 6px; }
 
-  @media (max-width: 480px) { .row { flex-direction: column; } .summary { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .row { flex-direction: column; } .summary { grid-template-columns: repeat(2, 1fr); } .row.header { flex-direction: row !important; } }
 
   /* iOS-style date picker modal */
   .modal { position: fixed; inset: 0; background: var(--overlay); display: none; align-items: flex-end; justify-content: center; z-index: 999; }
@@ -92,7 +92,7 @@
 </head>
 <body>
   <div class="container">
-    <div class="row" style="align-items:center; justify-content:space-between; gap:8px;">
+    <div class="row header" style="align-items:center; justify-content:space-between; gap:8px;">
       <div class="h1" style="margin:0;">Hand Hygiene Audit</div>
       <button class="btn" id="summaryBtn" style="flex:0 0 auto; width:auto; padding:10px 14px; font-size:14px;">Data Summary</button>
     </div>
@@ -194,7 +194,7 @@
 
   <!-- Data Summary Tab (hidden by default) -->
   <div class="container" id="tab_summary" style="display:none;">
-    <div class="row" style="align-items:center; justify-content:space-between; gap:8px;">
+    <div class="row header" style="align-items:center; justify-content:space-between; gap:8px;">
       <div class="h1" style="margin:0;">Data Summary</div>
       <button class="btn" id="backBtn" style="flex:0 0 auto; width:auto; padding:10px 14px; font-size:14px;">Back</button>
     </div>
@@ -759,7 +759,7 @@ function renderAreaTable(rows) {
   });
   const items = Array.from(byArea.entries()).map(([area,v]) => ({ area, total:v.total, comp:v.comp, rate: v.total? Math.round(v.comp*100/v.total):0 }));
   items.sort((a,b)=> b.rate - a.rate || b.comp - a.comp || a.area.localeCompare(b.area));
-  document.getElementById('tbl_area').innerHTML = tableHtml(['Area','Compliant','Total','Rate'], items.map(x=> [x.area, x.comp, x.total, x.rate+'%']));
+  document.getElementById('tbl_area').innerHTML = tableHtml(['Area','Compliance %'], items.map(x=> [x.area, x.rate+'%']));
 }
 
 function tableHtml(headers, rows) {
