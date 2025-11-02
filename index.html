@@ -92,7 +92,10 @@
 </head>
 <body>
   <div class="container">
-    <div class="h1">Hand Hygiene Audit</div>
+    <div class="row" style="align-items:center; justify-content:space-between; gap:8px;">
+      <div class="h1" style="margin:0;">Hand Hygiene Audit</div>
+      <button class="btn" id="summaryBtn" style="flex:0 0 auto; width:auto; padding:10px 14px; font-size:14px;">Data Summary</button>
+    </div>
 
     <div class="card">
       <div class="row">
@@ -185,6 +188,35 @@
       <button class="btn" id="submitBtn">Submit</button>
       <div class="note"><a href="https://docs.google.com/spreadsheets/d/17gato20KLR_8T9SSVSwqLlRKvt5fX_cew_UiwyjQogo/edit?usp=sharing" target="_blank" rel="noopener">See Sheet: https://docs.google.com/spreadsheets/d/17gato20KLR_8T9SSVSwqLlRKvt5fX_cew_UiwyjQogo/edit?usp=sharing</a></div>
       <div class="note" id="status"></div>
+    </div>
+      <div class="card" id="summaryBackCard" style="display:none;"></div>
+  </div>
+
+  <!-- Data Summary Tab (hidden by default) -->
+  <div class="container" id="tab_summary" style="display:none;">
+    <div class="row" style="align-items:center; justify-content:space-between; gap:8px;">
+      <div class="h1" style="margin:0;">Data Summary</div>
+      <button class="btn" id="backBtn" style="flex:0 0 auto; width:auto; padding:10px 14px; font-size:14px;">Back</button>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div class="col">
+          <label>Year</label>
+          <select id="sum_year"></select>
+        </div>
+        <div class="col">
+          <label>Month</label>
+          <select id="sum_month"></select>
+        </div>
+      </div>
+      <div class="note" id="summaryStatus"></div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:700; margin-bottom:8px;">Compliance by Area</div>
+      <div class="note">Filtered by Year/Month above.</div>
+      <div id="tbl_area"></div>
     </div>
   </div>
 
@@ -657,6 +689,89 @@ loadConfig();
 if (new URLSearchParams(location.search).get('test') === '1') {
   setTimeout(runExtraTests, 300);
 }
+// ===== Summary Tab logic =====
+function openSummary() {
+  const main = document.querySelectorAll('body > .container')[0];
+  if (main) main.style.display = 'none';
+  document.getElementById('tab_summary').style.display = '';
+  buildSummaryFilters();
+  loadSummary();
+}
+function backToForm() {
+  document.getElementById('tab_summary').style.display = 'none';
+  const main = document.querySelectorAll('body > .container')[0];
+  if (main) main.style.display = '';
+}
+
+function buildSummaryFilters() {
+  const ySel = document.getElementById('sum_year');
+  const mSel = document.getElementById('sum_month');
+  const curY = new Date().getFullYear();
+  ySel.innerHTML = '';
+  for (let y = 2025; y <= curY; y++) {
+    const o = document.createElement('option'); o.value = String(y); o.textContent = String(y); ySel.appendChild(o);
+  }
+  ySel.value = String(curY);
+  const months = ['All','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  mSel.innerHTML = months.map((m,i)=> `<option value="${i===0?'all':String(i).padStart(2,'0')}">${m}</option>`).join('');
+  mSel.value = 'all';
+  ySel.onchange = loadSummary; mSel.onchange = loadSummary;
+}
+
+async function loadSummary() {
+  const year = document.getElementById('sum_year').value;
+  const month = document.getElementById('sum_month').value; // 'all' or '01'..'12'
+  const status = document.getElementById('summaryStatus');
+  status.textContent = 'Loading...';
+  try {
+    const url = new URL(WEB_APP_URL);
+    url.searchParams.set('path','summary');
+    url.searchParams.set('year', year);
+    url.searchParams.set('month', month);
+    const res = await fetch(url.toString(), { method: 'GET' });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    const rows = Array.isArray(data.rows) ? data.rows : [];
+    const filtered = rows.filter(r => {
+      if (!r.date) return false;
+      if (String(r.date).slice(0,4) !== year) return false;
+      if (month !== 'all' && String(r.date).slice(5,7) !== month) return false;
+      return true;
+    });
+
+    renderAreaTable(filtered);
+    status.textContent = `${filtered.length} records.`;
+  } catch (e) {
+    console.error('[Summary] error', e);
+    status.textContent = e.message || 'Failed to load summary.';
+  }
+}
+
+function isCompliant(action) { return action === 'HW' || action === 'HR'; }
+
+function renderAreaTable(rows) {
+  const byArea = new Map();
+  rows.forEach(r => {
+    const k = r.area || 'Unknown';
+    const cur = byArea.get(k) || { total:0, comp:0 };
+    cur.total += 1; if (isCompliant(r.action)) cur.comp += 1; byArea.set(k, cur);
+  });
+  const items = Array.from(byArea.entries()).map(([area,v]) => ({ area, total:v.total, comp:v.comp, rate: v.total? Math.round(v.comp*100/v.total):0 }));
+  items.sort((a,b)=> b.rate - a.rate || b.comp - a.comp || a.area.localeCompare(b.area));
+  document.getElementById('tbl_area').innerHTML = tableHtml(['Area','Compliant','Total','Rate'], items.map(x=> [x.area, x.comp, x.total, x.rate+'%']));
+}
+
+function tableHtml(headers, rows) {
+  const head = `<div class=\"row\" style=\"font-weight:700; margin-bottom:6px;\">${headers.map(h=>`<div class=\\"col\\">${h}</div>`).join('')}</div>`;
+  const body = rows.map(r=> `<div class=\"row\">${r.map(c=>`<div class=\\"col\\">${c}</div>`).join('')}</div>`).join('');
+  return `<div>${head}${body || '<div class=\\"note\\">No data</div>'}</div>`;
+}
+
+// Wire header buttons
+document.getElementById('summaryBtn')?.addEventListener('click', openSummary);
+document.getElementById('backBtn')?.addEventListener('click', backToForm);
+
 </script>
 </body>
 </html>
