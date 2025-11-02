@@ -95,8 +95,8 @@
   .opp-title { font-weight:700; font-size:14px; color: var(--accent); margin-bottom:8px; }
 
   /* Summary chips */
-  .pill-grid { display:flex; flex-wrap: wrap; gap:8px; }
-  .chip { background: rgba(255,255,255,0.03); border:1px solid var(--border); color: var(--text); padding:8px 12px; border-radius:999px; font-size:13px; font-weight:700; }
+  .pill-grid { display:grid; grid-template-columns: repeat(2, 1fr); gap:8px; }
+  .chip { background: rgba(255,255,255,0.03); border:1px solid var(--border); color: var(--text); padding:12px; border-radius:12px; font-size:14px; font-weight:700; text-align:center; }
   .chip.ok { border-color: #2bb673; }
   .chip.warn { border-color: #ffb703; }
   .chip.bad { border-color: #ff6b6b; }
@@ -212,8 +212,28 @@
 
     <div class="card">
       <div style="font-weight:700; margin-bottom:8px;">Compliance Tally by Area</div>
+      <div class="row" style="gap:8px; margin-bottom:8px;">
+        <div class="col">
+          <label>Year</label>
+          <select id="sumYear"></select>
+        </div>
+        <div class="col">
+          <label>Month</label>
+          <select id="sumMonth"></select>
+        </div>
+      </div>
       <div class="note" id="summaryStatus"></div>
       <div id="tally_area"></div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:700; margin-bottom:8px;">Overall Compliance Tally</div>
+      <div class="summary">
+        <div class="kpi"><div class="v" id="sum_total">0</div><div class="l">Total</div></div>
+        <div class="kpi"><div class="v" id="sum_comp">0</div><div class="l">Compliant (HW+HR)</div></div>
+        <div class="kpi"><div class="v" id="sum_miss">0</div><div class="l">Missed</div></div>
+        <div class="kpi"><div class="v" id="sum_rate">0%</div><div class="l">Compliance</div></div>
+      </div>
     </div>
   </div>
 
@@ -611,11 +631,25 @@ function doneDatePicker() {
   closeDatePicker();
 }
 
+// ===== Summary helpers =====
+function renderOverallTally(rows) {
+  const total = rows.length;
+  const compliant = rows.filter(r => isCompliant(r['Action'] ?? r.Action ?? r.action ?? r.ACTION)).length;
+  const missed = rows.filter(r => String(r['Action'] ?? r.Action ?? r.action ?? r.ACTION).toLowerCase() === 'missed').length;
+  const rate = total ? Math.round((compliant * 100) / total) : 0;
+  const set = (id, v) => { const n = document.getElementById(id); if (n) n.textContent = String(v); };
+  set('sum_total', total);
+  set('sum_comp', compliant);
+  set('sum_miss', missed);
+  set('sum_rate', `${rate}%`);
+}
+
 // ===== Summary Tab logic =====
 function openSummary() {
   const main = document.querySelectorAll('body > .container')[0];
   if (main) main.style.display = 'none';
   document.getElementById('tab_summary').style.display = '';
+  buildSummaryFilters();
   loadSummary();
 }
 function backToForm() {
@@ -624,14 +658,34 @@ function backToForm() {
   if (main) main.style.display = '';
 }
 
-function buildSummaryFilters() { /* removed: filters deleted by request */ }
+function buildSummaryFilters() {
+  const ySel = document.getElementById('sumYear');
+  const mSel = document.getElementById('sumMonth');
+  if (!ySel || !mSel) return;
+  const current = new Date().getFullYear();
+  const years = [];
+  for (let y = 2025; y <= current; y++) years.push(y);
+  ySel.innerHTML = years.map(y=>`<option value="${y}">${y}</option>`).join('');
+  ySel.value = String(current);
+  const monthOpts = ['all', ...MONTHS.map((_,i)=> String(i+1).padStart(2,'0'))];
+  mSel.innerHTML = monthOpts.map(v=>{
+    const label = (v==='all') ? 'All months' : `${v} - ${MONTHS[Number(v)-1]}`;
+    return `<option value="${v}">${label}</option>`;
+  }).join('');
+  mSel.value = 'all';
+  ySel.addEventListener('change', () => loadSummary());
+  mSel.addEventListener('change', () => loadSummary());
+}
 
 async function loadSummary() {
   const status = document.getElementById('summaryStatus');
   status.textContent = 'Loading...';
   try {
-    const year = String(new Date().getFullYear());
-    const month = 'all';
+    const ySel = document.getElementById('sumYear');
+    const mSel = document.getElementById('sumMonth');
+    const year = ySel ? ySel.value : String(new Date().getFullYear());
+    const month = mSel ? mSel.value : 'all';
+
     const url = new URL(WEB_APP_URL);
     url.searchParams.set('path','summary');
     url.searchParams.set('year', year);
@@ -640,7 +694,9 @@ async function loadSummary() {
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     const rows = Array.isArray(data.rows) ? data.rows : [];
+
     renderAreaPills(rows);
+    renderOverallTally(rows);
     status.textContent = `Fetched ${rows.length} row(s).`;
   } catch (e) {
     console.error('[Summary] error', e);
@@ -674,7 +730,6 @@ function getYM(val) {
 }
 
 function renderAreaPills(rows) {
-  // Prefer exact column names used in your sheet: Area, Action
   const configuredAreas = (state && state.config && Array.isArray(state.config.areas) && state.config.areas.length)
     ? state.config.areas
     : Array.from(new Set(rows.map(r => (r['Area'] ?? r.Area ?? r.area ?? r.ward ?? r.Ward ?? 'Unknown'))));
@@ -682,7 +737,6 @@ function renderAreaPills(rows) {
   const items = configuredAreas.map(areaName => {
     const subset = rows.filter(r => (r['Area'] ?? r.Area ?? r.area ?? r.ward ?? r.Ward ?? 'Unknown') === areaName);
     const total = subset.length;
-    // Prefer 'Action' explicitly, then fallbacks. Accept legacy spellings.
     const compliantCount = subset.filter(r => isCompliant(r['Action'] ?? r.Action ?? r.action ?? r.ACTION)).length;
     const rate = total ? Math.round((compliantCount * 100) / total) : 0;
     return { area: areaName, compliantCount, total, rate };
