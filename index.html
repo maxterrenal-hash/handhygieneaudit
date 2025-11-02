@@ -434,7 +434,7 @@ function collectOpportunity(i) {
 }
 
 function updateSummary() {
-  let total = 0, comp = 0, miss = 0;
+  let total = 0, compliantCount = 0, miss = 0;
   const mCounts = {
     'BEF-PAT': 0,
     'BEF-ASEPT': 0,
@@ -450,13 +450,13 @@ function updateSummary() {
     const any = action || moment || (!time.disabled && time.value) || (!gloves.disabled && gloves.getAttribute('aria-selected') === 'true') || el(`oremarks_${i}`).value.trim();
     if (!any) continue;
     total++;
-    if (action === 'HW' || action === 'HR') comp++;
+    if (action === 'HW' || action === 'HR') compliantCount++;
     if (action === 'Missed') miss++;
     if (moment && mCounts.hasOwnProperty(moment)) mCounts[moment]++;
   }
-  const rate = total ? Math.round((comp / total) * 100) : 0;
+  const rate = total ? Math.round((compliantCount / total) * 100) : 0;
   el('k_total').textContent = String(total);
-  el('k_comp').textContent = String(comp);
+  el('k_comp').textContent = String(compliantCount);
   el('k_miss').textContent = String(miss);
   el('k_rate').textContent = `${rate}%`;
   const set = (id, v) => { const n = document.getElementById(id); if (n) n.textContent = String(v); };
@@ -674,6 +674,26 @@ async function loadSummary() {
 
     const rows = Array.isArray(data.rows) ? data.rows : [];
     const filtered = rows.filter(r => {
+      const dateRaw = r.date ?? r.Date ?? r.DATE ?? r.timestamp ?? r.Timestamp ?? r.TIME ?? r.Time ?? '';
+      const ym = getYM(dateRaw);
+      if (!ym.y) return false;
+      if (ym.y !== year) return false;
+      if (month !== 'all' && ym.m !== month) return false;
+      return true;
+    });
+
+    renderAreaPills(filtered);
+    status.textContent = `${filtered.length} records.`;
+  } catch (e) {
+    console.error('[Summary] error', e);
+    status.textContent = e.message || 'Failed to load summary.';
+  }
+});
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    const rows = Array.isArray(data.rows) ? data.rows : [];
+    const filtered = rows.filter(r => {
       const ym = getYM(r.date);
       if (!ym.y) return false;
       if (ym.y !== year) return false;
@@ -690,13 +710,29 @@ async function loadSummary() {
 }
 
 function isCompliant(action) {
-  // Treat both new codes (HW/HR) and legacy labels (Hand Wash/Hand Rub) as compliant
-  return action === 'HW' || action === 'HR' || action === 'Hand Wash' || action === 'Hand Rub';
+  if (!action && action !== 0) return false;
+  const a = String(action).trim().toLowerCase();
+  return a === 'hw' || a === 'hr' || a === 'hand wash' || a === 'hand rub';
 }
 
 // Normalize date from Apps Script/sheet into {y, m}
 function getYM(val) {
   if (!val) return { y: null, m: null };
+  const tryParse = (s) => {
+    // Try native Date
+    const d = new Date(s);
+    if (!isNaN(d)) return { y: String(d.getFullYear()), m: String(d.getMonth()+1).padStart(2,'0') };
+    return null;
+  };
+  let s = val;
+  if (typeof s !== 'string') s = String(s);
+  // Try various common formats
+  const d0 = tryParse(s); if (d0) return d0;
+  if (s.includes('-')) { const p = s.split('-'); if (p.length>=2) return { y: p[0], m: String(p[1]).padStart(2,'0') }; }
+  if (s.includes('/')) { const p = s.split('/'); if (p.length>=3) return { y: p[2], m: String(p[0]).padStart(2,'0') }; }
+  if (s.includes('.')) { const p = s.split('.'); if (p.length>=3) return { y: p[2], m: String(p[0]).padStart(2,'0') }; }
+  return { y: null, m: null };
+};
   // Try native Date parsing first
   const d = new Date(val);
   if (!isNaN(d)) {
@@ -721,17 +757,32 @@ function getYM(val) {
 }
 
 function renderAreaPills(rows) {
-  // Show ALL configured areas, even if there are zero records in the filtered rows
   const configuredAreas = (state && state.config && Array.isArray(state.config.areas) && state.config.areas.length)
     ? state.config.areas
-    : Array.from(new Set(rows.map(r => r.area || 'Unknown')));
+    : Array.from(new Set(rows.map(r => (r.area ?? r.Area ?? r.ward ?? r.Ward ?? 'Unknown'))));
 
-  const items = configuredAreas.map(area => {
-    const subset = rows.filter(r => (r.area || 'Unknown') === area);
+  const items = configuredAreas.map(areaName => {
+    const subset = rows.filter(r => (r.area ?? r.Area ?? r.ward ?? r.Ward ?? 'Unknown') === areaName);
     const total = subset.length;
-    const compliant = subset.filter(r => isCompliant(r.action)).length; // HW+HR (or legacy Hand Wash/Hand Rub)
-    const rate = total ? Math.round((compliant * 100) / total) : 0;
-    return { area, rate };
+    const compliantCount = subset.filter(r => isCompliant(r.action ?? r.Action ?? r.ACTION)).length;
+    const rate = total ? Math.round((compliantCount * 100) / total) : 0;
+    return { area: areaName, compliantCount, total, rate };
+  });
+
+  items.sort((a,b)=> a.area.localeCompare(b.area));
+
+  const wrap = document.createElement('div');
+  wrap.className = 'pill-grid';
+  items.forEach(x => {
+    const chip = document.createElement('div');
+    chip.className = 'chip ' + (x.rate >= 80 ? 'ok' : x.rate >= 50 ? 'warn' : 'bad');
+    chip.textContent = `${x.area} — ${x.rate}%`;
+    wrap.appendChild(chip);
+  });
+  const host = document.getElementById('tbl_area');
+  host.innerHTML = '';
+  host.appendChild(wrap);
+};
   });
 
   items.sort((a,b)=> a.area.localeCompare(b.area));
@@ -794,6 +845,8 @@ function runUnitTests() {
   console.assert(getYM('11/02/2025').y === '2025' && getYM('11/02/2025').m === '11', 'US date parse');
   console.assert(isCompliant('HW') && isCompliant('HR'), 'isCompliant codes');
   console.assert(isCompliant('Hand Wash') && isCompliant('Hand Rub'), 'isCompliant legacy');
+  // Casing tolerance
+  console.assert(isCompliant('hand wash') && isCompliant('hr'), 'isCompliant lower-case');
 }
 
 </script>
