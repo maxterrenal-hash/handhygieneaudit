@@ -375,6 +375,38 @@ function collectOpportunity(i) {
   const timeVal = timeInp.disabled ? '' : timeInp.value;
   const gloves = (el(`gloves_${i}`).getAttribute('aria-selected') === 'true');
   const opportunityRemarks = el(`oremarks_${i}`).value.trim();
+
+  // Skip entirely if nothing filled for this opportunity
+  const hasAny = moment || action || timeVal || gloves || opportunityRemarks;
+  if (!hasAny) return null;
+
+  // Time is OPTIONAL now. If provided, validate 0–60.
+  if (timeVal !== '') {
+    const n = Number(timeVal);
+    if (Number.isNaN(n) || n < 0 || n > 60) {
+      throw new Error(`Opportunity ${i}: time must be between 0 and 60 seconds.`);
+    }
+  }
+
+  // Gloves constraint stays: only with Missed
+  if (gloves && action !== 'Missed') {
+    throw new Error(`Opportunity ${i}: Gloves can only be checked when Action is Missed.`);
+  }
+
+  return {
+    number: i,
+    moment,
+    action,
+    timeSeconds: (timeVal === '' ? '' : Number(timeVal)),
+    gloves: (action === 'Missed') ? Boolean(gloves) : false,
+    opportunityRemarks
+  };
+}`);
+  const action = getSelectedValue(`action_${i}`);
+  const timeInp = el(`time_${i}`);
+  const timeVal = timeInp.disabled ? '' : timeInp.value;
+  const gloves = (el(`gloves_${i}`).getAttribute('aria-selected') === 'true');
+  const opportunityRemarks = el(`oremarks_${i}`).value.trim();
   const hasAny = moment || action || timeVal || gloves || opportunityRemarks; if (!hasAny) return null;
   if ((action === 'Hand Wash' || action === 'Hand Rub')) { if (timeVal === '') throw new Error(`Opportunity ${i}: time in seconds is required for ${action}.`); const n = Number(timeVal); if (Number.isNaN(n) || n < 0 || n > 60) throw new Error(`Opportunity ${i}: time must be between 0 and 60 seconds.`); }
   if (gloves && action !== 'Missed') { throw new Error(`Opportunity ${i}: Gloves can only be checked when Action is Missed.`); }
@@ -440,21 +472,56 @@ function gatherPayload() {
 }
 
 async function submitForm() {
-  const btn = el('submitBtn'); const status = el('status'); status.textContent = ''; btn.disabled = true;
+  const btn = el('submitBtn');
+  const status = el('status');
+  status.textContent = '';
+  btn.disabled = true;
   try {
+    // Client-side validation
     validateHeader();
     const payload = gatherPayload();
-    const res = await fetch(`${WEB_APP_URL}?path=submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    const json = await res.json(); if (!res.ok) throw new Error(json.error || 'Submission failed');
-    status.textContent = `Saved ${json.stored} row(s).`; status.style.color = 'var(--success)';
+
+    // Submit
+    const res = await fetch(`${WEB_APP_URL}?path=submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    // Try to decode response safely (handles HTML/text fallbacks from Apps Script)
+    const ctype = (res.headers.get('content-type') || '').toLowerCase();
+    let data = null, text = '';
+    if (ctype.includes('application/json')) {
+      data = await res.json();
+    } else {
+      text = await res.text();
+      try { data = JSON.parse(text); } catch (_) { /* not JSON */ }
+    }
+
+    if (!res.ok) {
+      const serverMsg = (data && (data.error || data.message)) || text || res.statusText || 'Submission failed';
+      throw new Error(`Server error (${res.status}): ${serverMsg}`);
+    }
+
+    // Success path
+    const stored = (data && (data.stored ?? data.rows ?? data.count)) || '';
+    status.textContent = stored ? `Saved ${stored} row(s).` : 'Saved.';
+    status.style.color = 'var(--success)';
+
+    // Reset opportunities
     for (let i = 1; i <= 10; i++) {
       document.querySelectorAll(`.tile[data-group="moment_${i}"], .tile[data-group="action_${i}"]`).forEach(b => b.setAttribute('aria-selected','false'));
       const g = el(`gloves_${i}`); g.setAttribute('aria-selected','false'); g.disabled = true;
       el(`time_${i}`).value = ''; el(`time_${i}`).disabled = true; el(`oremarks_${i}`).value = '';
     }
     updateSummary();
-  } catch (e) { status.textContent = e.message || 'Error'; status.style.color = 'var(--danger)'; }
-  finally { btn.disabled = false; }
+  } catch (e) {
+    status.textContent = e.message || 'Load failed. Please check your Apps Script deployment.';
+    status.style.color = 'var(--danger)';
+    console.error('[Submit] Error:', e);
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 // iOS-style date picker logic
