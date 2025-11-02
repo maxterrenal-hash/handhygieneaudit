@@ -747,7 +747,9 @@ function renderAreaPills(rows) {
   });
   const host = document.getElementById('tbl_area');
   host.innerHTML = '';
-  host.appendChild(wr
+  host.appendChild(wrap);
+}
+
 // ===== Wire buttons =====
   document.getElementById('summaryBtn')?.addEventListener('click', openSummary);
   document.getElementById('backBtn')?.addEventListener('click', backToForm);
