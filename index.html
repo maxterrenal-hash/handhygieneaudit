@@ -211,23 +211,9 @@
     </div>
 
     <div class="card">
-      <div class="row">
-        <div class="col">
-          <label>Year</label>
-          <select id="sum_year"></select>
-        </div>
-        <div class="col">
-          <label>Month</label>
-          <select id="sum_month"></select>
-        </div>
-      </div>
+      <div style="font-weight:700; margin-bottom:8px;">Compliance Tally by Area</div>
       <div class="note" id="summaryStatus"></div>
-    </div>
-
-    <div class="card">
-      <div style="font-weight:700; margin-bottom:8px;">Compliance by Area</div>
-      <div class="note">Filtered by Year/Month above.</div>
-      <div id="tbl_area"></div>
+      <div id="tally_area"></div>
     </div>
   </div>
 
@@ -630,7 +616,6 @@ function openSummary() {
   const main = document.querySelectorAll('body > .container')[0];
   if (main) main.style.display = 'none';
   document.getElementById('tab_summary').style.display = '';
-  buildSummaryFilters();
   loadSummary();
 }
 function backToForm() {
@@ -639,27 +624,14 @@ function backToForm() {
   if (main) main.style.display = '';
 }
 
-function buildSummaryFilters() {
-  const ySel = document.getElementById('sum_year');
-  const mSel = document.getElementById('sum_month');
-  const curY = new Date().getFullYear();
-  ySel.innerHTML = '';
-  for (let y = 2025; y <= curY; y++) {
-    const o = document.createElement('option'); o.value = String(y); o.textContent = String(y); ySel.appendChild(o);
-  }
-  ySel.value = String(curY);
-  const months = ['All','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  mSel.innerHTML = months.map((m,i)=> `<option value="${i===0?'all':String(i).padStart(2,'0')}">${m}</option>`).join('');
-  mSel.value = 'all';
-  ySel.onchange = loadSummary; mSel.onchange = loadSummary;
-}
+function buildSummaryFilters() { /* removed: filters deleted by request */ }
 
 async function loadSummary() {
-  const year = document.getElementById('sum_year').value;
-  const month = document.getElementById('sum_month').value; // 'all' or '01'..'12'
   const status = document.getElementById('summaryStatus');
   status.textContent = 'Loading...';
   try {
+    const year = String(new Date().getFullYear());
+    const month = 'all';
     const url = new URL(WEB_APP_URL);
     url.searchParams.set('path','summary');
     url.searchParams.set('year', year);
@@ -667,28 +639,9 @@ async function loadSummary() {
     const res = await fetch(url.toString(), { method: 'GET' });
     const data = await res.json();
     if (data.error) throw new Error(data.error);
-
     const rows = Array.isArray(data.rows) ? data.rows : [];
-
-    // If the backend already applied filters, don't re-filter client-side.
-    let filtered = rows;
-    if (!data.filtersApplied) {
-      filtered = rows.filter(r => {
-        const dateRaw = (
-          r.date ?? r.Date ?? r.DATE ?? r.timestamp ?? r.Timestamp ?? r.TIME ?? r.Time ??
-          r['Form Date'] ?? r['Audit Date'] ?? r['Date of Audit'] ?? r['DATE_SUBMITTED'] ?? r['Submission Time'] ?? ''
-        );
-        const ym = getYM(dateRaw);
-        if (!ym.y) return false;
-        if (ym.y !== year) return false;
-        if (month !== 'all' && ym.m !== month) return false;
-        return true;
-      });
-    }
-
-    renderAreaPills(filtered);
-    const msg = `Fetched ${rows.length} row(s); showing ${filtered.length} after filter` + (data.filtersApplied ? ' (server‑filtered).' : '.');
-    status.textContent = msg;
+    renderAreaPills(rows);
+    status.textContent = `Fetched ${rows.length} row(s).`;
   } catch (e) {
     console.error('[Summary] error', e);
     status.textContent = e.message || 'Failed to load summary.';
@@ -745,7 +698,7 @@ function renderAreaPills(rows) {
     chip.textContent = `${x.area} — ${x.rate}%`;
     wrap.appendChild(chip);
   });
-  const host = document.getElementById('tbl_area');
+  const host = document.getElementById('tally_area');
   host.innerHTML = '';
   host.appendChild(wrap);
 }
