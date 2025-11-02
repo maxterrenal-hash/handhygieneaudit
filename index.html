@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hand Hygiene Audit</title>
+<style>
+  :root {
+    --bg: #0b0f17;
+    --card: #141a24;
+    --muted: #9aa7b4;
+    --text: #e6edf3;
+    --accent: #6ee7ff;
+    --danger: #ff6b6b;
+    --success: #3ad29f;
+    --warning: #ffd166;
+    --border: #243244;
+    --input: #0e1520;
+    --overlay: rgba(0,0,0,0.6);
+  }
+  html, body { margin:0; padding:0; background:var(--bg); color:var(--text); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+  .container { max-width: 760px; margin: 0 auto; padding: 16px; }
+  .h1 { font-size: 20px; font-weight: 700; margin: 8px 0 16px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin: 12px 0; }
+  .row { display: flex; gap: 12px; }
+  .col { flex: 1; }
+  label { display:block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  select, input[type="text"], input[type="date"], input[type="number"], textarea, input[type="hidden"] {
+    width: 100%; background: var(--input); color: var(--text); border: 1px solid var(--border);
+    padding: 10px 12px; border-radius: 12px; outline: none; font-size: 14px;
+  }
+  select:focus, input:focus, textarea:focus { border-color: var(--accent); }
+  .radio-row, .check-row { display: flex; flex-wrap: wrap; gap: 8px 12px; }
+  /* Moments and Action stacked vertically in their own columns */
+  .radio-row.moments { flex-direction: column; flex-wrap: nowrap; overflow: visible; }
+  .radio-row.actions { flex-direction: column; flex-wrap: nowrap; overflow: visible; }
+  .radio { display:flex; align-items:flex-start; gap:8px; background: rgba(255,255,255,0.02); border:1px solid var(--border); padding:6px 10px; border-radius: 12px; white-space: normal; }
+  .chip { font-size: 12px; color: var(--muted); white-space: normal; }
+  .radio { display:flex; align-items:center; gap:8px; background: rgba(255,255,255,0.02); border:1px solid var(--border); padding:6px 10px; border-radius: 999px; }
+  .chip { font-size: 12px; color: var(--muted); }
+
+  .opp { border:1px solid var(--border); border-radius: 16px; padding: 12px; margin-top: 12px; }
+  .opp-title { font-weight: 700; margin-bottom: 8px; font-size: 14px; color: var(--accent); }
+  /* Two-column layout inside each opportunity: Moments (left) | Action (right) */
+  .opp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; position: relative; }
+  /* vertical separator between Moments (left) and Action (right) */
+  .opp-grid::before { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: linear-gradient(to bottom, rgba(0,0,0,0), var(--border), rgba(0,0,0,0)); pointer-events: none; }
+  .opp-col { min-width: 0; padding: 0 8px; }
+  .opp-col { min-width: 0; }
+  @media (max-width: 380px) { .opp-grid { grid-template-columns: 1fr 1fr; } }
+
+  .summary { display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+  .kpi { background: rgba(255,255,255,0.03); border:1px solid var(--border); border-radius: 12px; padding:10px; text-align:center; }
+  .kpi .v { font-size: 18px; font-weight: 700; }
+  .kpi .l { font-size: 12px; color: var(--muted); }
+
+  .btn { width:100%; padding:14px 16px; border-radius: 14px; background: linear-gradient(180deg, #18a1f0, #0f7cd6); border: none; color: white; font-weight: 700; font-size: 16px; letter-spacing: 0.3px; cursor: pointer; }
+  .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .note { color: var(--muted); font-size: 12px; margin-top: 6px; }
+
+  @media (max-width: 480px) { .row { flex-direction: column; } .summary { grid-template-columns: repeat(2, 1fr); } }
+
+  /* iOS-style date picker modal */
+  .modal { position: fixed; inset: 0; background: var(--overlay); display: none; align-items: flex-end; justify-content: center; z-index: 999; }
+  .modal.open { display: flex; }
+  .sheet { width: 100%; max-width: 760px; background: var(--card); border-top-left-radius: 16px; border-top-right-radius: 16px; border: 1px solid var(--border); box-shadow: 0 -10px 30px rgba(0,0,0,0.3); }
+  .sheet-header { display:flex; align-items:center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .sheet-title { font-weight: 700; }
+  .sheet-actions button { background: transparent; border: none; color: var(--accent); font-weight: 700; font-size: 14px; padding: 6px 10px; cursor: pointer; }
+  .wheels { display:flex; gap: 8px; padding: 12px; height: 180px; }
+  .wheel { flex: 1; position: relative; overflow-y: auto; scroll-snap-type: y mandatory; -webkit-overflow-scrolling: touch; border: 1px solid var(--border); border-radius: 12px; background: var(--input); }
+  .wheel::-webkit-scrollbar { width: 0; height: 0; }
+  .wheel-item { scroll-snap-align: center; text-align: center; padding: 10px 0; font-size: 16px; color: var(--text); }
+  .wheel-spacer { height: 70px; }
+  .wheel-highlight { position: absolute; left: 8px; right: 8px; top: 50%; height: 36px; margin-top: -18px; border: 1px solid var(--accent); border-radius: 8px; pointer-events: none; }
+  .date-display { background: var(--input); border: 1px solid var(--border); padding: 10px 12px; border-radius: 12px; cursor: pointer; }
+  /* Layout fixes: prevent input overflow in flex rows */
+  *, *::before, *::after { box-sizing: border-box; }
+  .col { flex: 1 1 0; min-width: 0; }
+  select, input[type="text"], input[type="date"], input[type="number"], textarea, input[type="hidden"], .date-display {
+    width: 100%; max-width: 100%; display: block;
+  }
+  textarea { resize: vertical; }
+  .card { overflow: hidden; }
+  /* Moments tally: single row, no horizontal scroll */
+  #momentsTally { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; overflow: hidden; }
+  #momentsTally .kpi { min-width: 0; }
+  #momentsTally .kpi .l { white-space: normal; overflow: hidden; text-overflow: ellipsis; }
+  /* Horizontal pill rows for choices */
+  .pill-row { display:flex; flex-wrap: nowrap; gap:8px; overflow-x:auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+  .pill-row::-webkit-scrollbar { display:none; }
+  /* Moments row: fit width, no horizontal scroll, exactly two lines (3+2 layout) */
+  .pill-row.moments { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; overflow: hidden; }
+  .pill-row.moments .tile { width: 100%; min-width: 0; max-width: none; text-align: center; }
+  .pill-row.moments .tile { width: 100%; min-width: 0; max-width: none; text-align: center; }
+  .pill-row::-webkit-scrollbar { display:none; }
+  /* Hide legacy radio/chip visuals (we'll use pill buttons) */
+  .radio, .chip { display:none; }
+  /* Clickable pill */
+  .tile { flex:0 0 auto; background: rgba(255,255,255,0.03); border:1px solid var(--border); color: var(--text); padding:8px 12px; border-radius:999px; font-size:13px; cursor:pointer; outline:none; white-space:normal; line-height:1.2; max-width:220px; min-width:120px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  .tile[aria-selected="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(110,231,255,0.18) inset; }
+  .tile[disabled] { opacity:.5; cursor:not-allowed; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="h1">Hand Hygiene Audit</div>
+
+    <div class="card">
+      <div class="row">
+        <div class="col">
+          <label>Auditor</label>
+          <select id="auditor"></select>
+        </div>
+        <div class="col">
+          <label>Area</label>
+          <select id="area"></select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <label>Date</label>
+          <!-- Hidden ISO date used for submit; visible field opens iOS-style picker -->
+          <input type="hidden" id="date">
+          <div id="dateDisplay" class="date-display" role="button" aria-haspopup="dialog" aria-controls="dateModal">Tap to select date</div>
+        </div>
+        <div class="col">
+          <label>Shift</label>
+          <select id="shift"></select>
+        </div>
+      </div>
+
+      <div class="row" id="areaOtherRow" style="display:none;">
+        <div class="col">
+          <label>Specify Area (if Others)</label>
+          <input type="text" id="areaOther" placeholder="Type area name">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <label>Form Remarks</label>
+          <textarea id="formRemarks" rows="2" placeholder="General notes for this audit form"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div class="col">
+          <label>Auditee</label>
+          <select id="auditee">
+            <option value="Nurse">Nurse</option>
+            <option value="Doctor">Doctor</option>
+            <option value="Med Tech">Med Tech</option>
+            <option value="Rad Tech">Rad Tech</option>
+            <option value="Nursing Aide">Nursing Aide</option>
+            <option value="Medical Intern">Medical Intern</option>
+            <option value="RT">RT</option>
+          </select>
+        </div>
+        <div class="col">
+          <label>Name (Optional)</label>
+          <input type="text" id="name" placeholder="Full name (optional)">
+        </div>
+      </div>
+    </div>
+
+    <div id="opportunities" class="card">
+      <div style="font-weight:700; margin-bottom:8px;">Opportunities</div>
+      <div class="note">Fill only the opportunities you observed. Blank ones are skipped when saving.</div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:700; margin-bottom:8px;">Compliance Tally</div>
+      <div class="summary">
+        <div class="kpi"><div class="v" id="k_total">0</div><div class="l">Total Filled</div></div>
+        <div class="kpi"><div class="v" id="k_comp">0</div><div class="l">Compliant</div></div>
+        <div class="kpi"><div class="v" id="k_miss">0</div><div class="l">Missed</div></div>
+        <div class="kpi"><div class="v" id="k_rate">0%</div><div class="l">Compliance</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:700; margin-bottom:8px;">Moments Tally</div>
+      <div class="summary" id="momentsTally">
+        <div class="kpi"><div class="v" id="k_m_before_touching_patient">0</div><div class="l">Before touching patient</div></div>
+        <div class="kpi"><div class="v" id="k_m_before_aseptic_procedure">0</div><div class="l">Before aseptic procedure</div></div>
+        <div class="kpi"><div class="v" id="k_m_after_exposure_to_body_fluids">0</div><div class="l">After exposure to body fluids</div></div>
+        <div class="kpi"><div class="v" id="k_m_after_touching_patient">0</div><div class="l">After touching patient</div></div>
+        <div class="kpi"><div class="v" id="k_m_after_touching_surroundings">0</div><div class="l">After touching surroundings</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <button class="btn" id="submitBtn">Submit</button>
+      <div class="note"><a href="https://docs.google.com/spreadsheets/d/17gato20KLR_8T9SSVSwqLlRKvt5fX_cew_UiwyjQogo/edit?usp=sharing" target="_blank" rel="noopener">See Sheet: https://docs.google.com/spreadsheets/d/17gato20KLR_8T9SSVSwqLlRKvt5fX_cew_UiwyjQogo/edit?usp=sharing</a></div>
+      <div class="note" id="status"></div>
+    </div>
+  </div>
+
+  <!-- iOS-style Date Picker Modal -->
+  <div id="dateModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="dateTitle">
+    <div class="sheet">
+      <div class="sheet-header">
+        <button type="button" id="dateCancel">Cancel</button>
+        <div class="sheet-title" id="dateTitle">Select Date</div>
+        <button type="button" id="dateDone">Done</button>
+      </div>
+      <div class="wheels">
+        <div class="wheel" id="wheelMonth"><div class="wheel-spacer"></div></div>
+        <div class="wheel" id="wheelDay"><div class="wheel-spacer"></div></div>
+        <div class="wheel" id="wheelYear"><div class="wheel-spacer"></div></div>
+        <div class="wheel-highlight"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzyOl7hQapHJgfEtfWrQ0jy3JvLekegFu3DVDM0a8BIcWHp7hs8knuzBPSs1d93zfg-NA/exec';
+
+const MOMENTS = ['before touching patient','before aseptic procedure','after exposure to body fluids','after touching patient','after touching surroundings'];
+const ACTIONS = ['Hand Wash', 'Hand Rub', 'Missed'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+const state = { config: { auditors: [], areas: [], shifts: [] } };
+
+function el(id) { return document.getElementById(id); }
+
+async function loadConfig() {
+  const defaults = {
+    auditors: ['Max','Micha','Miko','Belle','Michael'],
+    areas: ['7th Floor','ERC','ACM','OBGyne Ward','NICU','ICU','Surgery Ward','Dengue Ward','Infectious Ward','Medicine Ward','6th Floor Ward','Oncology Ward','Pedia Main','4th Floor Ward','Others'],
+    shifts: ['6-2','2-10','10-6']
+  };
+  try {
+    const res = await fetch(`${WEB_APP_URL}?path=config`, { method: 'GET' });
+    const json = await res.json();
+
+    const auditors = (json && Array.isArray(json.auditors) && json.auditors.length) ? json.auditors : defaults.auditors;
+    const areas    = (json && Array.isArray(json.areas)    && json.areas.length)    ? json.areas    : defaults.areas;
+    const shifts   = (json && Array.isArray(json.shifts)   && json.shifts.length)   ? json.shifts   : defaults.shifts;
+
+    state.config = { auditors, areas, shifts };
+
+    fillSelect(el('auditor'), auditors);
+    fillSelect(el('shift'), shifts);
+    const areasSel = el('area');
+    fillSelect(areasSel, areas);
+    areasSel.addEventListener('change', () => {
+      const isOthers = areasSel.value === 'Others';
+      el('areaOtherRow').style.display = isOthers ? '' : 'none';
+    });
+
+    // Default date = today
+    setDateToToday();
+
+    renderOpportunities();
+    updateSummary();
+    runSelfTests('after-config');
+  } catch (e) {
+    fillSelect(el('auditor'), defaults.auditors);
+    fillSelect(el('shift'), defaults.shifts);
+    const areasSel = el('area');
+    fillSelect(areasSel, defaults.areas);
+    areasSel.addEventListener('change', () => {
+      const isOthers = areasSel.value === 'Others';
+      el('areaOtherRow').style.display = isOthers ? '' : 'none';
+    });
+
+    setDateToToday();
+
+    renderOpportunities();
+    updateSummary();
+    el('status').textContent = 'Loaded fallback lists. Check your Apps Script web app access and Config sheet headers.';
+    runSelfTests('fallback');
+  }
+}
+
+function fillSelect(node, items) {
+  node.innerHTML = '';
+  (items || []).forEach(v => { const opt = document.createElement('option'); opt.value = v; opt.textContent = v; node.appendChild(opt); });
+}
+
+function renderOpportunities() {
+  const wrap = document.getElementById('opportunities');
+  if (wrap.querySelector('.opp')) return;
+  for (let i = 1; i <= 10; i++) {
+    const opp = document.createElement('div');
+    opp.className = 'opp';
+    opp.dataset.opp = String(i);
+    opp.innerHTML = `
+      <div class="opp-title">Opportunity ${i}</div>
+      <label>Moment</label>
+      <div class=\"pill-row moments\" id=\"mrow_${i}\">
+        ${MOMENTS.map(m => `<button type="button" class="tile" data-group="moment_${i}" data-value="${m}">${m}</button>`).join('')}
+      </div>
+      <label style="margin-top:8px;">Action</label>
+      <div class="pill-row" id="arow_${i}">
+        ${ACTIONS.map(a => `<button type="button" class="tile" data-group="action_${i}" data-value="${a}">${a}</button>`).join('')}
+        <button type="button" class="tile" id="gloves_${i}" data-toggle="gloves" aria-selected="false" disabled>Gloves</button>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <div class="col">
+          <label>Time (seconds)</label>
+          <input type="number" id="time_${i}" min="0" max="60" placeholder="0–60" disabled>
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <div class="col">
+          <label>Remarks for Opportunity ${i}</label>
+          <input type="text" id="oremarks_${i}" placeholder="Optional">
+        </div>
+      </div>`;
+    wrap.appendChild(opp);
+
+    // Moments single-select
+    opp.querySelectorAll(`#mrow_${i} .tile`).forEach(btn => {
+      btn.addEventListener('click', () => { selectTile(btn.dataset.group, btn.dataset.value); updateSummary(); });
+    });
+
+    // Actions single-select + gloves/time logic
+    opp.querySelectorAll(`#arow_${i} .tile[data-group="action_${i}"]`).forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectTile(btn.dataset.group, btn.dataset.value);
+        const val = getSelectedValue(`action_${i}`);
+        const time = el(`time_${i}`);
+        const gloves = el(`gloves_${i}`);
+        if (val === 'Hand Wash' || val === 'Hand Rub') {
+          time.disabled = false;
+          gloves.setAttribute('aria-selected','false');
+          gloves.disabled = true;
+        } else if (val === 'Missed') {
+          time.value = '';
+          time.disabled = true;
+          gloves.disabled = false;
+        } else {
+          time.value = '';
+          time.disabled = true;
+          gloves.setAttribute('aria-selected','false');
+          gloves.disabled = true;
+        }
+        updateSummary();
+      });
+    });
+
+    // Gloves toggle
+    opp.querySelector(`#gloves_${i}`).addEventListener('click', (e) => {
+      const btn = e.currentTarget; if (btn.disabled) return;
+      const curr = btn.getAttribute('aria-selected') === 'true';
+      btn.setAttribute('aria-selected', curr ? 'false' : 'true');
+      updateSummary();
+    });
+
+    el(`time_${i}`).addEventListener('input', updateSummary);
+  }
+}
+
+function getSelectedValue(group) {
+  const sel = document.querySelector(`.tile[data-group="${group}"][aria-selected="true"]`);
+  return sel ? sel.dataset.value : '';
+}
+function selectTile(group, value) {
+  document.querySelectorAll(`.tile[data-group="${group}"]`).forEach(b => b.setAttribute('aria-selected','false'));
+  const target = document.querySelector(`.tile[data-group="${group}"][data-value="${CSS.escape(value)}"]`);
+  if (target) target.setAttribute('aria-selected','true');
+}
+
+function collectOpportunity(i) {
+  const moment = getSelectedValue(`moment_${i}`);
+  const action = getSelectedValue(`action_${i}`);
+  const timeInp = el(`time_${i}`);
+  const timeVal = timeInp.disabled ? '' : timeInp.value;
+  const gloves = (el(`gloves_${i}`).getAttribute('aria-selected') === 'true');
+  const opportunityRemarks = el(`oremarks_${i}`).value.trim();
+  const hasAny = moment || action || timeVal || gloves || opportunityRemarks; if (!hasAny) return null;
+  if ((action === 'Hand Wash' || action === 'Hand Rub')) { if (timeVal === '') throw new Error(`Opportunity ${i}: time in seconds is required for ${action}.`); const n = Number(timeVal); if (Number.isNaN(n) || n < 0 || n > 60) throw new Error(`Opportunity ${i}: time must be between 0 and 60 seconds.`); }
+  if (gloves && action !== 'Missed') { throw new Error(`Opportunity ${i}: Gloves can only be checked when Action is Missed.`); }
+  return { number: i, moment, action, timeSeconds: (action === 'Hand Wash' || action === 'Hand Rub') ? Number(timeVal) : '', gloves: (action === 'Missed') ? Boolean(gloves) : false, opportunityRemarks };
+}
+
+function updateSummary() {
+  let total = 0, comp = 0, miss = 0;
+  const mCounts = {
+    'before touching patient': 0,
+    'before aseptic procedure': 0,
+    'after exposure to body fluids': 0,
+    'after touching patient': 0,
+    'after touching surroundings': 0
+  };
+  for (let i = 1; i <= 10; i++) {
+    const action = getSelectedValue(`action_${i}`);
+    const moment = getSelectedValue(`moment_${i}`);
+    const time = el(`time_${i}`);
+    const gloves = el(`gloves_${i}`);
+    const any = action || moment || (!time.disabled && time.value) || (!gloves.disabled && gloves.getAttribute('aria-selected') === 'true') || el(`oremarks_${i}`).value.trim();
+    if (!any) continue;
+    total++;
+    if (action === 'Hand Wash' || action === 'Hand Rub') comp++;
+    if (action === 'Missed') miss++;
+    if (moment && mCounts.hasOwnProperty(moment)) mCounts[moment]++;
+  }
+  const rate = total ? Math.round((comp / total) * 100) : 0;
+  el('k_total').textContent = String(total);
+  el('k_comp').textContent = String(comp);
+  el('k_miss').textContent = String(miss);
+  el('k_rate').textContent = `${rate}%`;
+  const set = (id, v) => { const n = document.getElementById(id); if (n) n.textContent = String(v); };
+  set('k_m_before_touching_patient', mCounts['before touching patient']);
+  set('k_m_before_aseptic_procedure', mCounts['before aseptic procedure']);
+  set('k_m_after_exposure_to_body_fluids', mCounts['after exposure to body fluids']);
+  set('k_m_after_touching_patient', mCounts['after touching patient']);
+  set('k_m_after_touching_surroundings', mCounts['after touching surroundings']);
+}
+
+function validateHeader() {
+  const auditor = el('auditor').value;
+  const date = el('date').value;
+  const shift = el('shift').value;
+  const area = el('area').value;
+  const auditee = el('auditee').value;
+  const missing = []; if (!auditor) missing.push('Auditor'); if (!date) missing.push('Date'); if (!shift) missing.push('Shift'); if (!area) missing.push('Area'); if (!auditee) missing.push('Auditee');
+  if (missing.length) throw new Error('Missing: ' + missing.join(', '));
+  let any = false; for (let i = 1; i <= 10; i++) { const op = collectOpportunity(i); if (op) { any = true; break; } } if (!any) throw new Error('Fill at least one opportunity.');
+}
+
+function gatherPayload() {
+  const auditor = el('auditor').value;
+  const date = el('date').value; // ISO date from hidden input
+  const shift = el('shift').value;
+  const area = el('area').value;
+  const areaOther = (area === 'Others') ? el('areaOther').value.trim() : '';
+  const auditee = el('auditee').value;
+  const name = el('name').value.trim();
+  const formRemarks = el('formRemarks').value.trim();
+  const opportunities = []; for (let i = 1; i <= 10; i++) { const op = collectOpportunity(i); if (op) opportunities.push(op); }
+  return { auditor, date, shift, area, areaOther, auditee, name, formRemarks, opportunities, userAgent: navigator.userAgent };
+}
+
+async function submitForm() {
+  const btn = el('submitBtn'); const status = el('status'); status.textContent = ''; btn.disabled = true;
+  try {
+    validateHeader();
+    const payload = gatherPayload();
+    const res = await fetch(`${WEB_APP_URL}?path=submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const json = await res.json(); if (!res.ok) throw new Error(json.error || 'Submission failed');
+    status.textContent = `Saved ${json.stored} row(s).`; status.style.color = 'var(--success)';
+    for (let i = 1; i <= 10; i++) {
+      document.querySelectorAll(`.tile[data-group="moment_${i}"], .tile[data-group="action_${i}"]`).forEach(b => b.setAttribute('aria-selected','false'));
+      const g = el(`gloves_${i}`); g.setAttribute('aria-selected','false'); g.disabled = true;
+      el(`time_${i}`).value = ''; el(`time_${i}`).disabled = true; el(`oremarks_${i}`).value = '';
+    }
+    updateSummary();
+  } catch (e) { status.textContent = e.message || 'Error'; status.style.color = 'var(--danger)'; }
+  finally { btn.disabled = false; }
+}
+
+// iOS-style date picker logic
+function setDateToToday() {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth()+1).padStart(2,'0');
+  const dd = String(today.getDate()).padStart(2,'0');
+  const iso = `${yyyy}-${mm}-${dd}`;
+  el('date').value = iso;
+  el('dateDisplay').textContent = formatPrettyDate(yyyy, mm, dd);
+}
+
+function formatPrettyDate(yyyy, mm, dd) {
+  const mName = MONTHS[Number(mm)-1];
+  return `${mName} ${Number(dd)}, ${yyyy}`;
+}
+
+function openDatePicker() {
+  const iso = el('date').value || (()=>{ setDateToToday(); return el('date').value; })();
+  const [y, m, d] = iso.split('-').map(Number);
+  buildWheel(el('wheelMonth'), MONTHS.map((n,i)=>({label:n, value:i+1})), m);
+  buildWheel(el('wheelDay'), Array.from({length: daysInMonth(m, y)}, (_,i)=>({label:String(i+1), value:i+1})), d);
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({length: 11}, (_,i)=> currentYear-5 + i); // currentYear-5 .. +5
+  buildWheel(el('wheelYear'), years.map(v=>({label:String(v), value:v})), y);
+  el('dateModal').classList.add('open');
+}
+
+function closeDatePicker() { el('dateModal').classList.remove('open'); }
+
+function buildWheel(container, items, selectedValue) {
+  container.innerHTML = '<div class="wheel-spacer"></div>';
+  items.forEach(it => {
+    const div = document.createElement('div');
+    div.className = 'wheel-item';
+    div.textContent = it.label;
+    div.dataset.value = it.value;
+    container.appendChild(div);
+  });
+  container.appendChild(Object.assign(document.createElement('div'),{className:'wheel-spacer'}));
+  const idx = Math.max(0, items.findIndex(i=> i.value === selectedValue));
+  const item = container.querySelectorAll('.wheel-item')[idx];
+  if (item) container.scrollTo({ top: item.offsetTop - (container.clientHeight/2 - 18), behavior: 'instant' });
+  container.onscroll = debounce(()=> snapToNearest(container), 80);
+}
+
+function snapToNearest(container) {
+  const items = Array.from(container.querySelectorAll('.wheel-item'));
+  if (!items.length) return;
+  const center = container.scrollTop + container.clientHeight/2;
+  let nearest = items[0]; let minDist = Infinity;
+  items.forEach(it => { const dist = Math.abs((it.offsetTop + it.offsetHeight/2) - center); if (dist < minDist) { minDist = dist; nearest = it; } });
+  container.scrollTo({ top: nearest.offsetTop - (container.clientHeight/2 - nearest.offsetHeight/2), behavior: 'smooth' });
+}
+
+function daysInMonth(m, y) { return new Date(y, m, 0).getDate(); }
+
+function getSelected(container) {
+  const items = Array.from(container.querySelectorAll('.wheel-item'));
+  const center = container.scrollTop + container.clientHeight/2;
+  let nearest = items[0]; let minDist = Infinity;
+  items.forEach(it => { const dist = Math.abs((it.offsetTop + it.offsetHeight/2) - center); if (dist < minDist) { minDist = dist; nearest = it; } });
+  return Number(nearest.dataset.value);
+}
+
+function debounce(fn, wait) { let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn.apply(null,args), wait); }; }
+
+function commitDateFromWheels() {
+  const m = getSelected(el('wheelMonth'));
+  const y = getSelected(el('wheelYear'));
+  const maxDay = daysInMonth(m, y);
+  // Rebuild day wheel if current selected day exceeds max days
+  const currentDay = Math.min(getSelected(el('wheelDay')), maxDay);
+  buildWheel(el('wheelDay'), Array.from({length: maxDay}, (_,i)=>({label:String(i+1), value:i+1})), currentDay);
+}
+
+function doneDatePicker() {
+  const m = String(getSelected(el('wheelMonth'))).padStart(2,'0');
+  const d = String(getSelected(el('wheelDay'))).padStart(2,'0');
+  const y = getSelected(el('wheelYear'));
+  const iso = `${y}-${m}-${d}`;
+  el('date').value = iso;
+  el('dateDisplay').textContent = formatPrettyDate(y, m, d);
+  closeDatePicker();
+}
+
+// Self-tests
+function runSelfTests(mode) {
+  try {
+    const opps = document.querySelectorAll('#opportunities .opp');
+    console.assert(opps.length === 10, `Expected 10 opportunities, found ${opps.length}`);
+    console.assert(el('auditor').options.length > 0, 'Auditor dropdown should not be empty');
+    console.assert(el('area').options.length > 0, 'Area dropdown should not be empty');
+    console.assert(el('shift').options.length > 0, 'Shift dropdown should not be empty');
+    console.assert(el('date').value.length === 10, 'Hidden ISO date should be set');
+    console.log('[SelfTest]', mode, 'OK');
+  } catch (err) { console.error('[SelfTest] failed:', err); }
+}
+
+// Wire up
+if (document.getElementById('submitBtn')) { document.getElementById('submitBtn').addEventListener('click', submitForm); }
+
+document.addEventListener('click', (e)=>{
+  if (e.target.id === 'dateDisplay') openDatePicker();
+});
+
+el('dateCancel')?.addEventListener('click', closeDatePicker);
+
+el('dateDone')?.addEventListener('click', doneDatePicker);
+
+// Recompute days when month/year scroll settles
+['wheelMonth','wheelYear'].forEach(id=>{
+  el(id).addEventListener('scroll', debounce(commitDateFromWheels, 120));
+});
+
+loadConfig();
+</script>
+</body>
+</html>
