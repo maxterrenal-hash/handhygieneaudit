@@ -69,8 +69,12 @@
   /* Horizontal pill rows for choices */
   .pill-row { display:flex; flex-wrap: nowrap; gap:8px; overflow-x:auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
   .pill-row::-webkit-scrollbar { display:none; }
-  /* Moments row: fit width, no horizontal scroll, one row of 5; pills allow two lines */
+  /* Moments row: fit width, no horizontal scroll */
   .pill-row.moments { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; overflow: hidden; }
+  .pill-row.moments .tile { width: 100%; min-width: 0; max-width: none; text-align: center; }
+  /* Actions row: no horizontal scroll on mobile */
+  .pill-row.actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; overflow: hidden; }
+  .pill-row.actions .tile { width: 100%; min-width: 0; max-width: none; text-align: center; }
   .pill-row.moments .tile { width: 100%; min-width: 0; max-width: none; text-align: center; }
 
   /* Clickable pill */
@@ -167,7 +171,18 @@
     <div class="card">
       <div style="font-weight:700; margin-bottom:8px;">Moments Tally</div>
       <div class="summary" id="momentsTally">
-        <div class="kpi"><div class="v" id="k_m_before_touching_patient">0</div><div class="l">Before touching patient</div></div>
+        <div class="kpi"><div class="v" id="k_m_BEF_PAT">0</div><div class="l">BEF-PAT</div></div>
+        <div class="kpi"><div class="v" id="k_m_BEF_ASEPT">0</div><div class="l">BEF-ASEPT</div></div>
+        <div class="kpi"><div class="v" id="k_m_AFT_BF">0</div><div class="l">AFT-BF</div></div>
+        <div class="kpi"><div class="v" id="k_m_AFT_PAT">0</div><div class="l">AFT-PAT</div></div>
+        <div class="kpi"><div class="v" id="k_m_AFT_PSURR">0</div><div class="l">AFT-PSURR</div></div>
+      </div>
+    </div>
+        <div class="kpi"><div class="v" id="k_m_BEF_ASEPT">0</div><div class="l">BEF-ASEPT</div></div>
+        <div class="kpi"><div class="v" id="k_m_AFT_BF">0</div><div class="l">AFT-BF</div></div>
+        <div class="kpi"><div class="v" id="k_m_AFT_PAT">0</div><div class="l">AFT-PAT</div></div>
+        <div class="kpi"><div class="v" id="k_m_AFT_PSURR">0</div><div class="l">AFT-PSURR</div></div>
+      </div><div class="l">Before touching patient</div></div>
         <div class="kpi"><div class="v" id="k_m_before_aseptic_procedure">0</div><div class="l">Before aseptic procedure</div></div>
         <div class="kpi"><div class="v" id="k_m_after_exposure_to_body_fluids">0</div><div class="l">After exposure to body fluids</div></div>
         <div class="kpi"><div class="v" id="k_m_after_touching_patient">0</div><div class="l">After touching patient</div></div>
@@ -202,8 +217,8 @@
 <script>
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbze3tIAAebpW5r_nz7tMcL4dpdXURj4-1hgV4PNkKJi4-ZJItfXnBXrMUwPLO22dl3d/exec';
 
-const MOMENTS = ['before touching patient','before aseptic procedure','after exposure to body fluids','after touching patient','after touching surroundings'];
-const ACTIONS = ['Hand Wash', 'Hand Rub', 'Missed'];
+const MOMENTS = ['BEF-PAT','BEF-ASEPT','AFT-BF','AFT-PAT','AFT-PSURR'];
+const ACTIONS = ['HW', 'HR', 'Missed'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 const state = { config: { auditors: [], areas: [], shifts: [] } };
@@ -279,7 +294,7 @@ function renderOpportunities() {
         ${MOMENTS.map(m => `<button type="button" class="tile" data-group="moment_${i}" data-value="${m}">${m}</button>`).join('')}
       </div>
       <label style="margin-top:8px;">Action</label>
-      <div class="pill-row" id="arow_${i}">
+      <div class="pill-row actions" id="arow_${i}">
         ${ACTIONS.map(a => `<button type="button" class="tile" data-group="action_${i}" data-value="${a}">${a}</button>`).join('')}
         <button type="button" class="tile" id="gloves_${i}" data-toggle="gloves" aria-selected="false" disabled>Gloves</button>
       </div>
@@ -309,7 +324,7 @@ function renderOpportunities() {
         const val = getSelectedValue(`action_${i}`);
         const time = el(`time_${i}`);
         const gloves = el(`gloves_${i}`);
-        if (val === 'Hand Wash' || val === 'Hand Rub') {
+        if (val === 'HW' || val === 'HR') {
           time.disabled = false;
           gloves.setAttribute('aria-selected','false');
           gloves.disabled = true;
@@ -387,11 +402,11 @@ function collectOpportunity(i) {
 function updateSummary() {
   let total = 0, comp = 0, miss = 0;
   const mCounts = {
-    'before touching patient': 0,
-    'before aseptic procedure': 0,
-    'after exposure to body fluids': 0,
-    'after touching patient': 0,
-    'after touching surroundings': 0
+    'BEF-PAT': 0,
+    'BEF-ASEPT': 0,
+    'AFT-BF': 0,
+    'AFT-PAT': 0,
+    'AFT-PSURR': 0
   };
   for (let i = 1; i <= 10; i++) {
     const action = getSelectedValue(`action_${i}`);
@@ -401,7 +416,7 @@ function updateSummary() {
     const any = action || moment || (!time.disabled && time.value) || (!gloves.disabled && gloves.getAttribute('aria-selected') === 'true') || el(`oremarks_${i}`).value.trim();
     if (!any) continue;
     total++;
-    if (action === 'Hand Wash' || action === 'Hand Rub') comp++;
+    if (action === 'HW' || action === 'HR') comp++;
     if (action === 'Missed') miss++;
     if (moment && mCounts.hasOwnProperty(moment)) mCounts[moment]++;
   }
@@ -411,11 +426,11 @@ function updateSummary() {
   el('k_miss').textContent = String(miss);
   el('k_rate').textContent = `${rate}%`;
   const set = (id, v) => { const n = document.getElementById(id); if (n) n.textContent = String(v); };
-  set('k_m_before_touching_patient', mCounts['before touching patient']);
-  set('k_m_before_aseptic_procedure', mCounts['before aseptic procedure']);
-  set('k_m_after_exposure_to_body_fluids', mCounts['after exposure to body fluids']);
-  set('k_m_after_touching_patient', mCounts['after touching patient']);
-  set('k_m_after_touching_surroundings', mCounts['after touching surroundings']);
+  set('k_m_BEF_PAT', mCounts['BEF-PAT']);
+  set('k_m_BEF_ASEPT', mCounts['BEF-ASEPT']);
+  set('k_m_AFT_BF', mCounts['AFT-BF']);
+  set('k_m_AFT_PAT', mCounts['AFT-PAT']);
+  set('k_m_AFT_PSURR', mCounts['AFT-PSURR']);
 }
 
 function validateHeader() {
@@ -611,7 +626,7 @@ async function runExtraTests() {
     console.assert(collectOpportunity(1) === null, 'Empty opportunity should be null');
 
     // 2) Hand Rub without time should be allowed (time optional)
-    selectTile('action_1','Hand Rub'); el('time_1').disabled = false; el('time_1').value='';
+    selectTile('action_1','HR'); el('time_1').disabled = false; el('time_1').value='';
     console.assert(collectOpportunity(1).timeSeconds === '', 'Time should be optional for Hand Rub');
 
     // 3) Missed enables Gloves toggle
