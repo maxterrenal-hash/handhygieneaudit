@@ -721,14 +721,16 @@ function getYM(val) {
 }
 
 function renderAreaPills(rows) {
+  // Prefer exact column names used in your sheet: Area, Action
   const configuredAreas = (state && state.config && Array.isArray(state.config.areas) && state.config.areas.length)
     ? state.config.areas
-    : Array.from(new Set(rows.map(r => (r.area ?? r.Area ?? r.ward ?? r.Ward ?? 'Unknown'))));
+    : Array.from(new Set(rows.map(r => (r['Area'] ?? r.Area ?? r.area ?? r.ward ?? r.Ward ?? 'Unknown'))));
 
   const items = configuredAreas.map(areaName => {
-    const subset = rows.filter(r => (r.area ?? r.Area ?? r.ward ?? r.Ward ?? 'Unknown') === areaName);
+    const subset = rows.filter(r => (r['Area'] ?? r.Area ?? r.area ?? r.ward ?? r.Ward ?? 'Unknown') === areaName);
     const total = subset.length;
-    const compliantCount = subset.filter(r => isCompliant(r.action ?? r.Action ?? r.ACTION)).length;
+    // Prefer 'Action' explicitly, then fallbacks. Accept legacy spellings.
+    const compliantCount = subset.filter(r => isCompliant(r['Action'] ?? r.Action ?? r.action ?? r.ACTION)).length;
     const rate = total ? Math.round((compliantCount * 100) / total) : 0;
     return { area: areaName, compliantCount, total, rate };
   });
@@ -745,9 +747,7 @@ function renderAreaPills(rows) {
   });
   const host = document.getElementById('tbl_area');
   host.innerHTML = '';
-  host.appendChild(wrap);
-}
-
+  host.appendChild(wr
 // ===== Wire buttons =====
   document.getElementById('summaryBtn')?.addEventListener('click', openSummary);
   document.getElementById('backBtn')?.addEventListener('click', backToForm);
