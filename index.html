@@ -174,8 +174,15 @@
       <div style="font-weight:700; margin-bottom:8px;">Moments Tally</div>
       <div class="summary" id="momentsTally">
         <div class="kpi"><div class="v" id="k_m_BEF_PAT">0</div><div class="l">BEF-PAT</div></div>
+        <div class="kpi"><div class="v" id="k_m_BEF_ASEPT">0</div><div class="l">BEF-ASEPT</div></div>
+        <div class="kpi"><div class="v" id="k_m_AFT_BF">0</div><div class="l">AFT-BF</div></div>
+        <div class="kpi"><div class="v" id="k_m_AFT_PAT">0</div><div class="l">AFT-PAT</div></div>
+        <div class="kpi"><div class="v" id="k_m_AFT_PSUR">0</div><div class="l">AFT-PSUR</div></div>
+      </div>
+    </div>
+
     <div class="card">
-      <button class="btn" id="submitBtn">Submit</button>
+      <button class="btn" id="submitBtn">Submit</button>>Submit</button>
       <div class="note"><a href="https://docs.google.com/spreadsheets/d/17gato20KLR_8T9SSVSwqLlRKvt5fX_cew_UiwyjQogo/edit?usp=sharing" target="_blank" rel="noopener">See Sheet: https://docs.google.com/spreadsheets/d/17gato20KLR_8T9SSVSwqLlRKvt5fX_cew_UiwyjQogo/edit?usp=sharing</a></div>
       <div class="note" id="status"></div>
     </div>
@@ -201,7 +208,7 @@
 <script>
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbze3tIAAebpW5r_nz7tMcL4dpdXURj4-1hgV4PNkKJi4-ZJItfXnBXrMUwPLO22dl3d/exec';
 
-const MOMENTS = ['BEF-PAT','BEF-ASEPT','AFT-BF','AFT-PAT','AFT-PSURR'];
+const MOMENTS = ['BEF-PAT','BEF-ASEPT','AFT-BF','AFT-PAT','AFT-PSUR'];
 const ACTIONS = ['HW', 'HR', 'Missed'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -390,7 +397,7 @@ function updateSummary() {
     'BEF-ASEPT': 0,
     'AFT-BF': 0,
     'AFT-PAT': 0,
-    'AFT-PSURR': 0
+    'AFT-PSUR': 0
   };
   for (let i = 1; i <= 10; i++) {
     const action = getSelectedValue(`action_${i}`);
@@ -414,7 +421,7 @@ function updateSummary() {
   set('k_m_BEF_ASEPT', mCounts['BEF-ASEPT']);
   set('k_m_AFT_BF', mCounts['AFT-BF']);
   set('k_m_AFT_PAT', mCounts['AFT-PAT']);
-  set('k_m_AFT_PSURR', mCounts['AFT-PSURR']);
+  set('k_m_AFT_PSUR', mCounts['AFT-PSUR']);
 }
 
 function validateHeader() {
