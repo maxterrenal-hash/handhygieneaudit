@@ -249,6 +249,7 @@
   </div>
 
 <script>
+// ===== Config =====
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbze3tIAAebpW5r_nz7tMcL4dpdXURj4-1hgV4PNkKJi4-ZJItfXnBXrMUwPLO22dl3d/exec';
 
 const MOMENTS = ['BEF-PAT','BEF-ASEPT','AFT-BF','AFT-PAT','AFT-PSUR'];
@@ -259,6 +260,7 @@ const state = { config: { auditors: [], areas: [], shifts: [] } };
 
 function el(id) { return document.getElementById(id); }
 
+// ===== Boot =====
 async function loadConfig() {
   const defaults = {
     auditors: ['Max','Micha','Miko','Belle','Michael'],
@@ -313,6 +315,7 @@ function fillSelect(node, items) {
   (items || []).forEach(v => { const opt = document.createElement('option'); opt.value = v; opt.textContent = v; node.appendChild(opt); });
 }
 
+// ===== UI: Opportunities =====
 function renderOpportunities() {
   const wrap = document.getElementById('opportunities');
   if (wrap.querySelector('.opp')) return;
@@ -538,7 +541,7 @@ async function submitForm() {
   }
 }
 
-// iOS-style date picker logic
+// ===== iOS-style date picker =====
 function setDateToToday() {
   const today = new Date();
   const yyyy = today.getFullYear();
@@ -666,17 +669,26 @@ async function loadSummary() {
     if (data.error) throw new Error(data.error);
 
     const rows = Array.isArray(data.rows) ? data.rows : [];
-    const filtered = rows.filter(r => {
-      const dateRaw = r.date ?? r.Date ?? r.DATE ?? r.timestamp ?? r.Timestamp ?? r.TIME ?? r.Time ?? '';
-      const ym = getYM(dateRaw);
-      if (!ym.y) return false;
-      if (ym.y !== year) return false;
-      if (month !== 'all' && ym.m !== month) return false;
-      return true;
-    });
+
+    // If the backend already applied filters, don't re-filter client-side.
+    let filtered = rows;
+    if (!data.filtersApplied) {
+      filtered = rows.filter(r => {
+        const dateRaw = (
+          r.date ?? r.Date ?? r.DATE ?? r.timestamp ?? r.Timestamp ?? r.TIME ?? r.Time ??
+          r['Form Date'] ?? r['Audit Date'] ?? r['Date of Audit'] ?? r['DATE_SUBMITTED'] ?? r['Submission Time'] ?? ''
+        );
+        const ym = getYM(dateRaw);
+        if (!ym.y) return false;
+        if (ym.y !== year) return false;
+        if (month !== 'all' && ym.m !== month) return false;
+        return true;
+      });
+    }
 
     renderAreaPills(filtered);
-    status.textContent = `${filtered.length} records.`;
+    const msg = `Fetched ${rows.length} row(s); showing ${filtered.length} after filter` + (data.filtersApplied ? ' (server‑filtered).' : '.');
+    status.textContent = msg;
   } catch (e) {
     console.error('[Summary] error', e);
     status.textContent = e.message || 'Failed to load summary.';
@@ -692,7 +704,10 @@ function isCompliant(action) {
 function getYM(val) {
   if (!val) return { y: null, m: null };
   const tryParse = (s) => {
-    const d = new Date(s);
+    // Normalize then feed to Date(...)
+    let t = String(s).trim();
+    t = t.replace(/[T ]\d{1,2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$/, '');
+    const d = new Date(t);
     if (!isNaN(d)) return { y: String(d.getFullYear()), m: String(d.getMonth()+1).padStart(2,'0') };
     return null;
   };
@@ -733,7 +748,7 @@ function renderAreaPills(rows) {
   host.appendChild(wrap);
 }
 
-// Wire header buttons
+// ===== Wire buttons =====
   document.getElementById('summaryBtn')?.addEventListener('click', openSummary);
   document.getElementById('backBtn')?.addEventListener('click', backToForm);
 
@@ -773,11 +788,16 @@ function runSelfTests(mode) {
 }
 
 function runUnitTests() {
+  // Date parsing
   console.assert(getYM('2025-11-02').y === '2025' && getYM('2025-11-02').m === '11', 'ISO date parse');
   console.assert(getYM('11/02/2025').y === '2025' && getYM('11/02/2025').m === '11', 'US date parse');
+  console.assert(getYM('2025/11/02 14:20:00').m === '11', 'Timestamp parse strips time');
+  // Compliance mapping
   console.assert(isCompliant('HW') && isCompliant('HR'), 'isCompliant codes');
   console.assert(isCompliant('Hand Wash') && isCompliant('Hand Rub'), 'isCompliant legacy');
   console.assert(isCompliant('hand wash') && isCompliant('hr'), 'isCompliant lower-case');
+  // Days in month sanity
+  console.assert(daysInMonth(2, 2024) === 29, 'Leap year Feb has 29 days');
 }
 
 </script>
