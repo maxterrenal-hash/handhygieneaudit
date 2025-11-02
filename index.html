@@ -284,7 +284,6 @@ async function loadConfig() {
       el('areaOtherRow').style.display = isOthers ? '' : 'none';
     });
 
-    // Default date = today
     setDateToToday();
 
     renderOpportunities();
@@ -497,18 +496,15 @@ async function submitForm() {
   status.textContent = '';
   btn.disabled = true;
   try {
-    // Client-side validation
     validateHeader();
     const payload = gatherPayload();
 
-    // Submit
     const res = await fetch(`${WEB_APP_URL}?path=submit`, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     });
 
-    // Try to decode response safely (handles HTML/text fallbacks from Apps Script)
     const ctype = (res.headers.get('content-type') || '').toLowerCase();
     let data = null, text = '';
     if (ctype.includes('application/json')) {
@@ -523,12 +519,10 @@ async function submitForm() {
       throw new Error(`Server error (${res.status}): ${serverMsg}`);
     }
 
-    // Success path
     const stored = (data && (data.stored ?? data.rows ?? data.count)) || '';
     status.textContent = stored ? `Saved ${stored} row(s).` : 'Saved.';
     status.style.color = 'var(--success)';
 
-    // Reset opportunities
     for (let i = 1; i <= 10; i++) {
       document.querySelectorAll(`.tile[data-group="moment_${i}"], .tile[data-group="action_${i}"]`).forEach(b => b.setAttribute('aria-selected','false'));
       const g = el(`gloves_${i}`); g.setAttribute('aria-selected','false'); g.disabled = true;
@@ -614,7 +608,6 @@ function commitDateFromWheels() {
   const m = getSelected(el('wheelMonth'));
   const y = getSelected(el('wheelYear'));
   const maxDay = daysInMonth(m, y);
-  // Rebuild day wheel if current selected day exceeds max days
   const currentDay = Math.min(getSelected(el('wheelDay')), maxDay);
   buildWheel(el('wheelDay'), Array.from({length: maxDay}, (_,i)=>({label:String(i+1), value:i+1})), currentDay);
 }
@@ -688,25 +681,6 @@ async function loadSummary() {
     console.error('[Summary] error', e);
     status.textContent = e.message || 'Failed to load summary.';
   }
-});
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-
-    const rows = Array.isArray(data.rows) ? data.rows : [];
-    const filtered = rows.filter(r => {
-      const ym = getYM(r.date);
-      if (!ym.y) return false;
-      if (ym.y !== year) return false;
-      if (month !== 'all' && ym.m !== month) return false;
-      return true;
-    });
-
-    renderAreaPills(filtered);
-    status.textContent = `${filtered.length} records.`;
-  } catch (e) {
-    console.error('[Summary] error', e);
-    status.textContent = e.message || 'Failed to load summary.';
-  }
 }
 
 function isCompliant(action) {
@@ -715,44 +689,19 @@ function isCompliant(action) {
   return a === 'hw' || a === 'hr' || a === 'hand wash' || a === 'hand rub';
 }
 
-// Normalize date from Apps Script/sheet into {y, m}
 function getYM(val) {
   if (!val) return { y: null, m: null };
   const tryParse = (s) => {
-    // Try native Date
     const d = new Date(s);
     if (!isNaN(d)) return { y: String(d.getFullYear()), m: String(d.getMonth()+1).padStart(2,'0') };
     return null;
   };
   let s = val;
   if (typeof s !== 'string') s = String(s);
-  // Try various common formats
   const d0 = tryParse(s); if (d0) return d0;
   if (s.includes('-')) { const p = s.split('-'); if (p.length>=2) return { y: p[0], m: String(p[1]).padStart(2,'0') }; }
   if (s.includes('/')) { const p = s.split('/'); if (p.length>=3) return { y: p[2], m: String(p[0]).padStart(2,'0') }; }
   if (s.includes('.')) { const p = s.split('.'); if (p.length>=3) return { y: p[2], m: String(p[0]).padStart(2,'0') }; }
-  return { y: null, m: null };
-};
-  // Try native Date parsing first
-  const d = new Date(val);
-  if (!isNaN(d)) {
-    return { y: String(d.getFullYear()), m: String(d.getMonth() + 1).padStart(2, '0') };
-  }
-  const s = String(val);
-  // Try ISO-like 'YYYY-MM-DD'
-  if (s.indexOf('-') >= 0) {
-    const p = s.split('-');
-    if (p.length >= 2) return { y: p[0], m: String(p[1]).padStart(2,'0') };
-  }
-  // Try 'MM/DD/YYYY' or 'MM.DD/YYYY'
-  if (s.indexOf('/') >= 0) {
-    const p = s.split('/');
-    if (p.length >= 3) return { y: p[2], m: String(p[0]).padStart(2,'0') };
-  }
-  if (s.indexOf('.') >= 0) {
-    const p = s.split('.');
-    if (p.length >= 3) return { y: p[2], m: String(p[0]).padStart(2,'0') };
-  }
   return { y: null, m: null };
 }
 
@@ -767,22 +716,6 @@ function renderAreaPills(rows) {
     const compliantCount = subset.filter(r => isCompliant(r.action ?? r.Action ?? r.ACTION)).length;
     const rate = total ? Math.round((compliantCount * 100) / total) : 0;
     return { area: areaName, compliantCount, total, rate };
-  });
-
-  items.sort((a,b)=> a.area.localeCompare(b.area));
-
-  const wrap = document.createElement('div');
-  wrap.className = 'pill-grid';
-  items.forEach(x => {
-    const chip = document.createElement('div');
-    chip.className = 'chip ' + (x.rate >= 80 ? 'ok' : x.rate >= 50 ? 'warn' : 'bad');
-    chip.textContent = `${x.area} — ${x.rate}%`;
-    wrap.appendChild(chip);
-  });
-  const host = document.getElementById('tbl_area');
-  host.innerHTML = '';
-  host.appendChild(wrap);
-};
   });
 
   items.sort((a,b)=> a.area.localeCompare(b.area));
@@ -840,12 +773,10 @@ function runSelfTests(mode) {
 }
 
 function runUnitTests() {
-  // Date parsing
   console.assert(getYM('2025-11-02').y === '2025' && getYM('2025-11-02').m === '11', 'ISO date parse');
   console.assert(getYM('11/02/2025').y === '2025' && getYM('11/02/2025').m === '11', 'US date parse');
   console.assert(isCompliant('HW') && isCompliant('HR'), 'isCompliant codes');
   console.assert(isCompliant('Hand Wash') && isCompliant('Hand Rub'), 'isCompliant legacy');
-  // Casing tolerance
   console.assert(isCompliant('hand wash') && isCompliant('hr'), 'isCompliant lower-case');
 }
 
