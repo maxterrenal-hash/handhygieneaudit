@@ -21,33 +21,15 @@
   html, body { margin:0; padding:0; background:var(--bg); color:var(--text); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
   .container { max-width: 760px; margin: 0 auto; padding: 16px; }
   .h1 { font-size: 20px; font-weight: 700; margin: 8px 0 16px; }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin: 12px 0; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin: 12px 0; overflow: hidden; }
   .row { display: flex; gap: 12px; }
-  .col { flex: 1; }
+  .col { flex: 1 1 0; min-width: 0; }
   label { display:block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
-  select, input[type="text"], input[type="date"], input[type="number"], textarea, input[type="hidden"] {
-    width: 100%; background: var(--input); color: var(--text); border: 1px solid var(--border);
+  select, input[type="text"], input[type="date"], input[type="number"], textarea, input[type="hidden"], .date-display {
+    width: 100%; max-width: 100%; display: block; background: var(--input); color: var(--text); border: 1px solid var(--border);
     padding: 10px 12px; border-radius: 12px; outline: none; font-size: 14px;
   }
   select:focus, input:focus, textarea:focus { border-color: var(--accent); }
-  .radio-row, .check-row { display: flex; flex-wrap: wrap; gap: 8px 12px; }
-  /* Moments and Action stacked vertically in their own columns */
-  .radio-row.moments { flex-direction: column; flex-wrap: nowrap; overflow: visible; }
-  .radio-row.actions { flex-direction: column; flex-wrap: nowrap; overflow: visible; }
-  .radio { display:flex; align-items:flex-start; gap:8px; background: rgba(255,255,255,0.02); border:1px solid var(--border); padding:6px 10px; border-radius: 12px; white-space: normal; }
-  .chip { font-size: 12px; color: var(--muted); white-space: normal; }
-  .radio { display:flex; align-items:center; gap:8px; background: rgba(255,255,255,0.02); border:1px solid var(--border); padding:6px 10px; border-radius: 999px; }
-  .chip { font-size: 12px; color: var(--muted); }
-
-  .opp { border:1px solid var(--border); border-radius: 16px; padding: 12px; margin-top: 12px; }
-  .opp-title { font-weight: 700; margin-bottom: 8px; font-size: 14px; color: var(--accent); }
-  /* Two-column layout inside each opportunity: Moments (left) | Action (right) */
-  .opp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; position: relative; }
-  /* vertical separator between Moments (left) and Action (right) */
-  .opp-grid::before { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: linear-gradient(to bottom, rgba(0,0,0,0), var(--border), rgba(0,0,0,0)); pointer-events: none; }
-  .opp-col { min-width: 0; padding: 0 8px; }
-  .opp-col { min-width: 0; }
-  @media (max-width: 380px) { .opp-grid { grid-template-columns: 1fr 1fr; } }
 
   .summary { display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
   .kpi { background: rgba(255,255,255,0.03); border:1px solid var(--border); border-radius: 12px; padding:10px; text-align:center; }
@@ -75,32 +57,31 @@
   .wheel-spacer { height: 70px; }
   .wheel-highlight { position: absolute; left: 8px; right: 8px; top: 50%; height: 36px; margin-top: -18px; border: 1px solid var(--accent); border-radius: 8px; pointer-events: none; }
   .date-display { background: var(--input); border: 1px solid var(--border); padding: 10px 12px; border-radius: 12px; cursor: pointer; }
-  /* Layout fixes: prevent input overflow in flex rows */
+
+  /* Layout fixes */
   *, *::before, *::after { box-sizing: border-box; }
-  .col { flex: 1 1 0; min-width: 0; }
-  select, input[type="text"], input[type="date"], input[type="number"], textarea, input[type="hidden"], .date-display {
-    width: 100%; max-width: 100%; display: block;
-  }
-  textarea { resize: vertical; }
-  .card { overflow: hidden; }
+
   /* Moments tally: single row, no horizontal scroll */
   #momentsTally { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; overflow: hidden; }
   #momentsTally .kpi { min-width: 0; }
   #momentsTally .kpi .l { white-space: normal; overflow: hidden; text-overflow: ellipsis; }
+
   /* Horizontal pill rows for choices */
   .pill-row { display:flex; flex-wrap: nowrap; gap:8px; overflow-x:auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
   .pill-row::-webkit-scrollbar { display:none; }
-  /* Moments row: fit width, no horizontal scroll, exactly two lines (3+2 layout) */
+  /* Moments row: fit width, no horizontal scroll, one row of 5; pills allow two lines */
   .pill-row.moments { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; overflow: hidden; }
   .pill-row.moments .tile { width: 100%; min-width: 0; max-width: none; text-align: center; }
-  .pill-row.moments .tile { width: 100%; min-width: 0; max-width: none; text-align: center; }
-  .pill-row::-webkit-scrollbar { display:none; }
-  /* Hide legacy radio/chip visuals (we'll use pill buttons) */
-  .radio, .chip { display:none; }
+
   /* Clickable pill */
   .tile { flex:0 0 auto; background: rgba(255,255,255,0.03); border:1px solid var(--border); color: var(--text); padding:8px 12px; border-radius:999px; font-size:13px; cursor:pointer; outline:none; white-space:normal; line-height:1.2; max-width:220px; min-width:120px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
   .tile[aria-selected="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(110,231,255,0.18) inset; }
   .tile[disabled] { opacity:.5; cursor:not-allowed; }
+
+  /* Opportunity card separation */
+  .opp { background: rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:16px; padding:12px; margin-top:12px; }
+  .opp + .opp { margin-top:12px; }
+  .opp-title { font-weight:700; font-size:14px; color: var(--accent); margin-bottom:8px; }
 </style>
 </head>
 <body>
@@ -294,7 +275,7 @@ function renderOpportunities() {
     opp.innerHTML = `
       <div class="opp-title">Opportunity ${i}</div>
       <label>Moment</label>
-      <div class=\"pill-row moments\" id=\"mrow_${i}\">
+      <div class="pill-row moments" id="mrow_${i}">
         ${MOMENTS.map(m => `<button type="button" class="tile" data-group="moment_${i}" data-value="${m}">${m}</button>`).join('')}
       </div>
       <label style="margin-top:8px;">Action</label>
@@ -401,16 +382,6 @@ function collectOpportunity(i) {
     gloves: (action === 'Missed') ? Boolean(gloves) : false,
     opportunityRemarks
   };
-}`);
-  const action = getSelectedValue(`action_${i}`);
-  const timeInp = el(`time_${i}`);
-  const timeVal = timeInp.disabled ? '' : timeInp.value;
-  const gloves = (el(`gloves_${i}`).getAttribute('aria-selected') === 'true');
-  const opportunityRemarks = el(`oremarks_${i}`).value.trim();
-  const hasAny = moment || action || timeVal || gloves || opportunityRemarks; if (!hasAny) return null;
-  if ((action === 'Hand Wash' || action === 'Hand Rub')) { if (timeVal === '') throw new Error(`Opportunity ${i}: time in seconds is required for ${action}.`); const n = Number(timeVal); if (Number.isNaN(n) || n < 0 || n > 60) throw new Error(`Opportunity ${i}: time must be between 0 and 60 seconds.`); }
-  if (gloves && action !== 'Missed') { throw new Error(`Opportunity ${i}: Gloves can only be checked when Action is Missed.`); }
-  return { number: i, moment, action, timeSeconds: (action === 'Hand Wash' || action === 'Hand Rub') ? Number(timeVal) : '', gloves: (action === 'Missed') ? Boolean(gloves) : false, opportunityRemarks };
 }
 
 function updateSummary() {
@@ -609,7 +580,7 @@ function doneDatePicker() {
   closeDatePicker();
 }
 
-// Self-tests
+// Self-tests (existing)
 function runSelfTests(mode) {
   try {
     const opps = document.querySelectorAll('#opportunities .opp');
@@ -620,6 +591,42 @@ function runSelfTests(mode) {
     console.assert(el('date').value.length === 10, 'Hidden ISO date should be set');
     console.log('[SelfTest]', mode, 'OK');
   } catch (err) { console.error('[SelfTest] failed:', err); }
+}
+
+// Extra tests (opt-in via ?test=1). These will temporarily set selections for opp 1 and then revert.
+async function runExtraTests() {
+  try {
+    // Snapshot
+    const snapshot = {
+      moment: getSelectedValue('moment_1'),
+      action: getSelectedValue('action_1'),
+      gloves: el('gloves_1').getAttribute('aria-selected'),
+      time: el('time_1').value
+    };
+
+    // 1) Empty opportunity should return null
+    document.querySelectorAll('.tile[data-group="moment_1"], .tile[data-group="action_1"]').forEach(b => b.setAttribute('aria-selected','false'));
+    el('gloves_1').setAttribute('aria-selected','false'); el('gloves_1').disabled = true;
+    el('time_1').value=''; el('time_1').disabled = true;
+    console.assert(collectOpportunity(1) === null, 'Empty opportunity should be null');
+
+    // 2) Hand Rub without time should be allowed (time optional)
+    selectTile('action_1','Hand Rub'); el('time_1').disabled = false; el('time_1').value='';
+    console.assert(collectOpportunity(1).timeSeconds === '', 'Time should be optional for Hand Rub');
+
+    // 3) Missed enables Gloves toggle
+    selectTile('action_1','Missed'); el('time_1').value=''; el('time_1').disabled = true; el('gloves_1').disabled = false; el('gloves_1').setAttribute('aria-selected','true');
+    const op = collectOpportunity(1); console.assert(op.gloves === true && op.action==='Missed', 'Gloves true only with Missed');
+
+    // Revert
+    document.querySelectorAll('.tile[data-group="moment_1"], .tile[data-group="action_1"]').forEach(b => b.setAttribute('aria-selected','false'));
+    if (snapshot.moment) selectTile('moment_1', snapshot.moment);
+    if (snapshot.action) selectTile('action_1', snapshot.action);
+    el('gloves_1').setAttribute('aria-selected', snapshot.gloves || 'false');
+    el('time_1').value = snapshot.time || '';
+    updateSummary();
+    console.log('[ExtraTests] OK');
+  } catch (err) { console.error('[ExtraTests] failed:', err); }
 }
 
 // Wire up
@@ -639,6 +646,11 @@ el('dateDone')?.addEventListener('click', doneDatePicker);
 });
 
 loadConfig();
+
+// Opt-in extra tests
+if (new URLSearchParams(location.search).get('test') === '1') {
+  setTimeout(runExtraTests, 300);
+}
 </script>
 </body>
 </html>
