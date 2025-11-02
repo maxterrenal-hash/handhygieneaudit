@@ -627,6 +627,8 @@ function runSelfTests(mode) {
     console.assert(el('area').options.length > 0, 'Area dropdown should not be empty');
     console.assert(el('shift').options.length > 0, 'Shift dropdown should not be empty');
     console.assert(el('date').value.length === 10, 'Hidden ISO date should be set');
+    console.assert(!!document.getElementById('summaryBtn'), 'Summary button must exist');
+    console.assert(!!document.getElementById('backBtn'), 'Back button must exist in summary tab');
     console.log('[SelfTest]', mode, 'OK');
   } catch (err) { console.error('[SelfTest] failed:', err); }
 }
@@ -667,28 +669,6 @@ async function runExtraTests() {
   } catch (err) { console.error('[ExtraTests] failed:', err); }
 }
 
-// Wire up
-if (document.getElementById('submitBtn')) { document.getElementById('submitBtn').addEventListener('click', submitForm); }
-
-document.addEventListener('click', (e)=>{
-  if (e.target.id === 'dateDisplay') openDatePicker();
-});
-
-el('dateCancel')?.addEventListener('click', closeDatePicker);
-
-el('dateDone')?.addEventListener('click', doneDatePicker);
-
-// Recompute days when month/year scroll settles
-['wheelMonth','wheelYear'].forEach(id=>{
-  el(id).addEventListener('scroll', debounce(commitDateFromWheels, 120));
-});
-
-loadConfig();
-
-// Opt-in extra tests
-if (new URLSearchParams(location.search).get('test') === '1') {
-  setTimeout(runExtraTests, 300);
-}
 // ===== Summary Tab logic =====
 function openSummary() {
   const main = document.querySelectorAll('body > .container')[0];
@@ -768,7 +748,7 @@ function getYM(val) {
     const p = s.split('-');
     if (p.length >= 2) return { y: p[0], m: String(p[1]).padStart(2,'0') };
   }
-  // Try 'MM/DD/YYYY' or 'MM.DD.YYYY'
+  // Try 'MM/DD/YYYY' or 'MM.DD/YYYY'
   if (s.indexOf('/') >= 0) {
     const p = s.split('/');
     if (p.length >= 3) return { y: p[2], m: String(p[0]).padStart(2,'0') };
@@ -781,27 +761,62 @@ function getYM(val) {
 }
 
 function renderAreaTable(rows) {
-  const byArea = new Map();
-  rows.forEach(r => {
-    const k = r.area || 'Unknown';
-    const cur = byArea.get(k) || { total:0, comp:0 };
-    cur.total += 1; if (isCompliant(r.action)) cur.comp += 1; byArea.set(k, cur);
+  // Show ALL configured areas, even if there are zero records in the filtered rows
+  const configuredAreas = (state && state.config && Array.isArray(state.config.areas) && state.config.areas.length)
+    ? state.config.areas
+    : Array.from(new Set(rows.map(r => r.area || 'Unknown')));
+
+  const items = configuredAreas.map(area => {
+    const subset = rows.filter(r => (r.area || 'Unknown') === area);
+    const total = subset.length;
+    const compliant = subset.filter(r => isCompliant(r.action)).length; // HW+HR (or legacy Hand Wash/Hand Rub)
+    const rate = total ? Math.round((compliant * 100) / total) : 0;
+    return { area, compliant, total, rate };
   });
-  const items = Array.from(byArea.entries()).map(([area,v]) => ({ area, total:v.total, comp:v.comp, rate: v.total? Math.round(v.comp*100/v.total):0 }));
-  items.sort((a,b)=> b.rate - a.rate || b.comp - a.comp || a.area.localeCompare(b.area));
-  document.getElementById('tbl_area').innerHTML = tableHtml(['Area','Compliance %'], items.map(x=> [x.area, x.rate+'%']));
+
+  // Sort primarily by area name for predictable output
+  items.sort((a,b)=> a.area.localeCompare(b.area));
+
+  // Display as: Area | HW+HR | Total | Compliance %
+  document.getElementById('tbl_area').innerHTML = tableHtml(
+    ['Area','HW+HR','Total','Compliance %'],
+    items.map(x=> [x.area, x.compliant, x.total, x.rate + '%'])
+  );
 }
 
 function tableHtml(headers, rows) {
-  const head = `<div class=\"row\" style=\"font-weight:700; margin-bottom:6px;\">${headers.map(h=>`<div class=\\"col\\">${h}</div>`).join('')}</div>`;
-  const body = rows.map(r=> `<div class=\"row\">${r.map(c=>`<div class=\\"col\\">${c}</div>`).join('')}</div>`).join('');
-  return `<div>${head}${body || '<div class=\\"note\\">No data</div>'}</div>`;
+  const head = `<div class=\"row\" style=\"font-weight:700; margin-bottom:6px;\">${headers.map(h=>`<div class=\\\"col\\\">${h}</div>`).join('')}</div>`;
+  const body = rows.map(r=> `<div class=\"row\">${r.map(c=>`<div class=\\\"col\\\">${c}</div>`).join('')}</div>`).join('');
+  return `<div>${head}${body || '<div class=\\\"note\\\">No data</div>'}</div>`;
 }
 
 // Wire header buttons
-document.getElementById('summaryBtn')?.addEventListener('click', openSummary);
-document.getElementById('backBtn')?.addEventListener('click', backToForm);
+  document.getElementById('summaryBtn')?.addEventListener('click', openSummary);
+  document.getElementById('backBtn')?.addEventListener('click', backToForm);
 
+// Initial boot
+loadConfig();
+
+// Enable in-wheel recompute
+['wheelMonth','wheelYear'].forEach(id=>{
+  el(id).addEventListener('scroll', debounce(commitDateFromWheels, 120));
+});
+
+document.addEventListener('click', (e)=>{
+  if (e.target.id === 'dateDisplay') openDatePicker();
+});
+
+el('dateCancel')?.addEventListener('click', closeDatePicker);
+
+el('dateDone')?.addEventListener('click', doneDatePicker);
+
+// Submit
+if (document.getElementById('submitBtn')) { document.getElementById('submitBtn').addEventListener('click', submitForm); }
+
+// Opt-in extra tests
+if (new URLSearchParams(location.search).get('test') === '1') {
+  setTimeout(runExtraTests, 300);
+}
 </script>
 </body>
 </html>
